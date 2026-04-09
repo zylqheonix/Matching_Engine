@@ -19,7 +19,8 @@ if(ME_ENABLE_ASAN AND ME_ENABLE_TSAN)
   message(FATAL_ERROR "ME_ENABLE_ASAN and ME_ENABLE_TSAN are mutually exclusive.")
 endif()
 
-add_compile_options(
+add_library(me_project_options INTERFACE)
+target_compile_options(me_project_options INTERFACE
   -Wall
   -Wextra
   -Wpedantic
@@ -30,11 +31,11 @@ add_compile_options(
 )
 
 if(ME_ENABLE_ASAN)
-  add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
-  add_link_options(-fsanitize=address)
+  target_compile_options(me_project_options INTERFACE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(me_project_options INTERFACE -fsanitize=address)
 elseif(ME_ENABLE_TSAN)
-  add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
-  add_link_options(-fsanitize=thread)
+  target_compile_options(me_project_options INTERFACE -fsanitize=thread -fno-omit-frame-pointer)
+  target_link_options(me_project_options INTERFACE -fsanitize=thread)
 endif()
 
 include(FetchContent)
@@ -58,6 +59,6 @@ FetchContent_MakeAvailable(googlebenchmark)
 
 add_executable(order_book_build_test tests/order_book_build_test.cpp)
 target_include_directories(order_book_build_test PRIVATE include)
-target_link_libraries(order_book_build_test PRIVATE GTest::gtest_main)
+target_link_libraries(order_book_build_test PRIVATE me_project_options GTest::gtest_main)
 
 add_test(NAME order_book_build_test COMMAND order_book_build_test)
