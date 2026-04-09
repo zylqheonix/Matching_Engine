@@ -3,11 +3,11 @@
 #include <vector>
 
 class OrderBook {
- public:
-  void add_order(const Order& order) { orders.push_back(order); }
+public:
+  void add_order(const Order &order) { orders.push_back(order); }
 
   Order get_latest_order() { return orders.back(); }
 
- private:
+private:
   std::vector<Order> orders;
 };
