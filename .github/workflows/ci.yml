@@ -54,7 +54,7 @@ jobs:
         run: |
           files="$(git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx')"
           if [ -n "$files" ]; then
-            clang-format --dry-run --Werror $files
+            clang-format --style=file --dry-run --Werror $files
           else
             echo "No C/C++ source files found."
           fi

@@ -1,0 +1,6 @@
+BasedOnStyle: LLVM
+IndentWidth: 2
+SortIncludes: false
+AllowShortEnumsOnASingleLine: false
+BinPackArguments: false
+BinPackParameters: false
