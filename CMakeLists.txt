@@ -19,10 +19,7 @@ if(ME_ENABLE_ASAN AND ME_ENABLE_TSAN)
   message(FATAL_ERROR "ME_ENABLE_ASAN and ME_ENABLE_TSAN are mutually exclusive.")
 endif()
 
-add_library(me_project_options INTERFACE)
-link_libraries(me_project_options)
-
-target_compile_options(me_project_options INTERFACE
+add_compile_options(
   -Wall
   -Wextra
   -Wpedantic
@@ -33,11 +30,11 @@ target_compile_options(me_project_options INTERFACE
 )
 
 if(ME_ENABLE_ASAN)
-  target_compile_options(me_project_options INTERFACE -fsanitize=address -fno-omit-frame-pointer)
-  target_link_options(me_project_options INTERFACE -fsanitize=address)
+  add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address)
 elseif(ME_ENABLE_TSAN)
-  target_compile_options(me_project_options INTERFACE -fsanitize=thread -fno-omit-frame-pointer)
-  target_link_options(me_project_options INTERFACE -fsanitize=thread)
+  add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=thread)
 endif()
 
 include(FetchContent)
@@ -49,6 +46,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
+enable_testing()
+
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   googlebenchmark
@@ -56,3 +55,9 @@ FetchContent_Declare(
   GIT_TAG v1.9.0
 )
 FetchContent_MakeAvailable(googlebenchmark)
+
+add_executable(order_book_build_test tests/order_book_build_test.cpp)
+target_include_directories(order_book_build_test PRIVATE include)
+target_link_libraries(order_book_build_test PRIVATE GTest::gtest_main)
+
+add_test(NAME order_book_build_test COMMAND order_book_build_test)
