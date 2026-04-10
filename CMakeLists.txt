@@ -57,8 +57,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googlebenchmark)
 
-add_executable(order_book_build_test tests/order_book_build_test.cpp)
-target_include_directories(order_book_build_test PRIVATE include)
-target_link_libraries(order_book_build_test PRIVATE me_project_options GTest::gtest_main)
+add_executable(order_book_init_test tests/order_book_init_test.cpp)
+target_include_directories(order_book_init_test PRIVATE include)
+target_link_libraries(order_book_init_test PRIVATE me_project_options GTest::gtest_main)
 
-add_test(NAME order_book_build_test COMMAND order_book_build_test)
+add_test(NAME order_book_init_test COMMAND order_book_init_test)
+
+add_executable(order_book_benchmark benchmarks/order_book_benchmark.cpp)
+target_include_directories(order_book_benchmark PRIVATE include)
+target_link_libraries(
+  order_book_benchmark PRIVATE me_project_options benchmark::benchmark_main
+)
