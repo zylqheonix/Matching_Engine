@@ -6,12 +6,13 @@
 #include <gtest/gtest.h>
 
 TEST(OrderInit, BracedInitializer) {
-  Order o{1,
-          Side::BUY,
-          100.0,
-          1.0,
-          std::chrono::system_clock::now(),
-          false};
+  Order o{};
+  o.id = 1;
+  o.side = Side::BUY;
+  o.price = 100.0;
+  o.quantity = 1.0;
+  o.timestamp = std::chrono::system_clock::now();
+  o.is_filled = false;
   EXPECT_EQ(o.id, 1u);
   EXPECT_EQ(o.side, Side::BUY);
   EXPECT_DOUBLE_EQ(o.price, 100.0);
