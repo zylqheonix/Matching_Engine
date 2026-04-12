@@ -57,6 +57,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googlebenchmark)
 
+add_library(me_order_book STATIC src/order_book.cpp)
+target_include_directories(me_order_book PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(me_order_book PRIVATE me_project_options)
+
 add_executable(order_book_init_test tests/order_book_init_test.cpp)
 target_include_directories(order_book_init_test PRIVATE include)
 target_link_libraries(order_book_init_test PRIVATE me_project_options GTest::gtest_main)

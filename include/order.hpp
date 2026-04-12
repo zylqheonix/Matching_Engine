@@ -10,8 +10,8 @@ enum class Side {
 struct Order {
   uint64_t id;
   Side side;
-  double price;
-  double quantity;
+  uint64_t price;
+  uint64_t quantity;
   std::chrono::system_clock::time_point timestamp;
   bool is_filled;
 };
