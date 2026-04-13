@@ -21,7 +21,7 @@ void OrderBook::add_limit_order(const Order &order) {
 
   if (order.side == Side::BUY) {
     uint64_t remaining_quantity = order.quantity;
-    while (!this->asks.empty() &&
+    while (!this->asks.empty() && remaining_quantity > 0 &&
            this->asks.begin()->first <= order.price) {
       auto &[price, ask] = *this->asks.begin();
 
@@ -59,7 +59,7 @@ void OrderBook::add_limit_order(const Order &order) {
   } else {
 
     uint64_t remaining_quantity = order.quantity;
-    while (!this->bids.empty() &&
+    while (!this->bids.empty() && remaining_quantity > 0 &&
            this->bids.begin()->first >= order.price) {
       auto &[price, bid] = *this->bids.begin();
 
