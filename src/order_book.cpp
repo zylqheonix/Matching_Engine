@@ -53,8 +53,11 @@ void OrderBook::add_limit_order(const Order &order) {
       Order resting = order;
       resting.quantity = remaining_quantity;
       lst.push_back(resting);
-      this->lookup_table[order.id] = {Side::BUY, order.price,
-                                      std::prev(lst.end())};
+      this->lookup_table[order.id] = LookupEntry{
+          Side::BUY,
+          order.price,
+          std::prev(lst.end()),
+      };
     }
   } else {
 
@@ -87,8 +90,11 @@ void OrderBook::add_limit_order(const Order &order) {
       Order resting = order;
       resting.quantity = remaining_quantity;
       lst.push_back(resting);
-      this->lookup_table[order.id] = {Side::SELL, order.price,
-                                      std::prev(lst.end())};
+      this->lookup_table[order.id] = LookupEntry{
+          Side::SELL,
+          order.price,
+          std::prev(lst.end()),
+      };
     }
   }
 }
