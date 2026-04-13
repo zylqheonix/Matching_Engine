@@ -67,8 +67,17 @@ target_link_libraries(order_book_init_test PRIVATE me_project_options GTest::gte
 
 add_test(NAME order_book_init_test COMMAND order_book_init_test)
 
+add_executable(order_book_limit_test tests/order_book_limit_test.cpp)
+target_include_directories(order_book_limit_test PRIVATE include)
+target_link_libraries(
+  order_book_limit_test PRIVATE me_project_options me_order_book GTest::gtest_main
+)
+
+add_test(NAME order_book_limit_test COMMAND order_book_limit_test)
+
 add_executable(order_book_benchmark benchmarks/order_book_benchmark.cpp)
 target_include_directories(order_book_benchmark PRIVATE include)
 target_link_libraries(
-  order_book_benchmark PRIVATE me_project_options benchmark::benchmark_main
+  order_book_benchmark PRIVATE me_project_options me_order_book
+                                benchmark::benchmark_main
 )
