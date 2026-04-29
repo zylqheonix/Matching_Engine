@@ -98,3 +98,35 @@ void OrderBook::add_limit_order(const Order &order) {
     }
   }
 }
+
+bool OrderBook::cancel_order(const uint64_t &order_id) {
+  auto lookup_it = this->lookup_table.find(order_id);
+  if (lookup_it == this->lookup_table.end()) {
+    return false;
+  }
+
+  const LookupEntry &entry = lookup_it->second;
+  if (entry.side == Side::BUY) {
+    auto price_level_it = this->bids.find(entry.price);
+    if (price_level_it == this->bids.end()) {
+      return false;
+    }
+
+    price_level_it->second.erase(entry.order_iterator);
+    if (price_level_it->second.empty()) {
+      this->bids.erase(price_level_it);
+    }
+  } else {
+    auto price_level_it = this->asks.find(entry.price);
+    if (price_level_it == this->asks.end()) {
+      return false;
+    }
+
+    price_level_it->second.erase(entry.order_iterator);
+    if (price_level_it->second.empty()) {
+      this->asks.erase(price_level_it);
+    }
+  }
+  this->lookup_table.erase(lookup_it);
+  return true;
+}

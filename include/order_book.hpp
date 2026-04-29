@@ -23,6 +23,7 @@ struct LookupEntry {
 class OrderBook {
 public:
   void add_limit_order(const Order &order);
+  bool cancel_order(const uint64_t &order_id);
   Order get_best_ask();
   Order get_best_bid();
 
