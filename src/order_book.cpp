@@ -1,7 +1,15 @@
 #include "order_book.hpp"
-
 #include <algorithm>
 #include <iterator>
+#include <utility>
+
+OrderBook::OrderBook(std::function<void(const Trade &)> trade_callback)
+    : trade_callback_(std::move(trade_callback)) {}
+
+void OrderBook::set_trade_callback(
+    std::function<void(const Trade &)> trade_callback) {
+  this->trade_callback_ = std::move(trade_callback);
+}
 
 Order OrderBook::get_best_ask() {
   if (asks.empty()) {
@@ -33,9 +41,8 @@ void OrderBook::add_limit_order(const Order &order) {
         remaining_quantity -= fill;
         ask_order.quantity -= fill;
 
-        // placeholder will be a callback to the matching engine
         Trade trade = {order.id, ask_order.id, price, fill, 0};
-        (void)trade;
+        this->trade_callback_(trade);
 
         if (ask_order.quantity == 0) {
           lookup_table.erase(ask_order.id);
@@ -72,9 +79,8 @@ void OrderBook::add_limit_order(const Order &order) {
             std::min<uint64_t>(remaining_quantity, bid_order.quantity);
         remaining_quantity -= fill;
         bid_order.quantity -= fill;
-        // placeholder will be a callback to the matching engine
         Trade trade = {order.id, bid_order.id, price, fill, 0};
-        (void)trade;
+        this->trade_callback_(trade);
         if (bid_order.quantity == 0) {
           lookup_table.erase(bid_order.id);
           bid.pop_front();
