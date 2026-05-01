@@ -1,0 +1,126 @@
+{
+  "context": {
+    "date": "2026-05-01T10:20:15-07:00",
+    "host_name": "sids-MacBook-Pro.local",
+    "executable": "./build/order_book_benchmark",
+    "num_cpus": 14,
+    "mhz_per_cpu": 24,
+    "cpu_scaling_enabled": false,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 65536,
+        "num_sharing": 0
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 131072,
+        "num_sharing": 0
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 4194304,
+        "num_sharing": 1
+      }
+    ],
+    "load_avg": [3.16162,3.19727,2.70117],
+    "library_version": "v1.9.0",
+    "library_build_type": "release",
+    "json_schema_version": 1
+  },
+  "benchmarks": [
+    {
+      "name": "BM_AddLimitOrder/64",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_AddLimitOrder/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 25696,
+      "real_time": 2.7925552615852666e+03,
+      "cpu_time": 2.7855697384807027e+03,
+      "time_unit": "ns",
+      "items_per_second": 2.2975551147000428e+07
+    },
+    {
+      "name": "BM_AddLimitOrder/512",
+      "family_index": 0,
+      "per_family_instance_index": 1,
+      "run_name": "BM_AddLimitOrder/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 3211,
+      "real_time": 2.1494329494851394e+04,
+      "cpu_time": 2.1422609778885108e+04,
+      "time_unit": "ns",
+      "items_per_second": 2.3899982555096794e+07
+    },
+    {
+      "name": "BM_CancelOrder/64",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_CancelOrder/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 39205,
+      "real_time": 1.8151042429855486e+03,
+      "cpu_time": 1.8140798367553341e+03,
+      "time_unit": "ns",
+      "items_per_second": 3.5279593931472436e+07
+    },
+    {
+      "name": "BM_CancelOrder/512",
+      "family_index": 1,
+      "per_family_instance_index": 1,
+      "run_name": "BM_CancelOrder/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 6036,
+      "real_time": 1.1519009911930751e+04,
+      "cpu_time": 1.1484923790588180e+04,
+      "time_unit": "ns",
+      "items_per_second": 4.4580182623378024e+07
+    },
+    {
+      "name": "BM_MatchHeavyThroughput/64",
+      "family_index": 2,
+      "per_family_instance_index": 0,
+      "run_name": "BM_MatchHeavyThroughput/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 28082,
+      "real_time": 2.5209259483024034e+03,
+      "cpu_time": 2.5167723096643708e+03,
+      "time_unit": "ns",
+      "items_per_second": 2.5429396117495768e+07
+    },
+    {
+      "name": "BM_MatchHeavyThroughput/512",
+      "family_index": 2,
+      "per_family_instance_index": 1,
+      "run_name": "BM_MatchHeavyThroughput/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 4586,
+      "real_time": 1.5460486438818280e+04,
+      "cpu_time": 1.5394897514172100e+04,
+      "time_unit": "ns",
+      "items_per_second": 3.3257772552799881e+07
+    }
+  ]
+}
