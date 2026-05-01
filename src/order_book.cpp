@@ -1,6 +1,7 @@
 #include "order_book.hpp"
 #include <algorithm>
 #include <iterator>
+#include <stdexcept>
 #include <utility>
 
 OrderBook::OrderBook(std::function<void(const Trade &)> trade_callback)
@@ -26,11 +27,15 @@ Order OrderBook::get_best_bid() {
 }
 
 void OrderBook::add_limit_order(const Order &order) {
+  if (order.type != OrderType::LIMIT || !order.price.has_value()) {
+    throw std::invalid_argument("limit order requires a limit price");
+  }
+  const uint64_t limit_price = *order.price;
 
   if (order.side == Side::BUY) {
     uint64_t remaining_quantity = order.quantity;
     while (!this->asks.empty() && remaining_quantity > 0 &&
-           this->asks.begin()->first <= order.price) {
+           this->asks.begin()->first <= limit_price) {
       auto &[price, ask] = *this->asks.begin();
 
       while (remaining_quantity > 0 && !ask.empty()) {
@@ -56,13 +61,13 @@ void OrderBook::add_limit_order(const Order &order) {
     }
 
     if (remaining_quantity > 0) {
-      auto &lst = this->bids[order.price];
+      auto &lst = this->bids[limit_price];
       Order resting = order;
       resting.quantity = remaining_quantity;
       lst.push_back(resting);
       this->lookup_table[order.id] = LookupEntry{
           Side::BUY,
-          order.price,
+          limit_price,
           std::prev(lst.end()),
       };
     }
@@ -70,7 +75,7 @@ void OrderBook::add_limit_order(const Order &order) {
 
     uint64_t remaining_quantity = order.quantity;
     while (!this->bids.empty() && remaining_quantity > 0 &&
-           this->bids.begin()->first >= order.price) {
+           this->bids.begin()->first >= limit_price) {
       auto &[price, bid] = *this->bids.begin();
 
       while (remaining_quantity > 0 && !bid.empty()) {
@@ -92,15 +97,72 @@ void OrderBook::add_limit_order(const Order &order) {
     }
 
     if (remaining_quantity > 0) {
-      auto &lst = this->asks[order.price];
+      auto &lst = this->asks[limit_price];
       Order resting = order;
       resting.quantity = remaining_quantity;
       lst.push_back(resting);
       this->lookup_table[order.id] = LookupEntry{
           Side::SELL,
-          order.price,
+          limit_price,
           std::prev(lst.end()),
       };
+    }
+  }
+}
+
+void OrderBook::add_market_order(const Order &order) {
+  if (order.type != OrderType::MARKET) {
+    throw std::invalid_argument("market order must have market type");
+  }
+
+  uint64_t remaining_quantity = order.quantity;
+  if (order.side == Side::BUY) {
+    while (!this->asks.empty() && remaining_quantity > 0) {
+      auto &[price, ask] = *this->asks.begin();
+
+      while (remaining_quantity > 0 && !ask.empty()) {
+        Order &ask_order = ask.front();
+        const uint64_t fill =
+            std::min<uint64_t>(remaining_quantity, ask_order.quantity);
+        remaining_quantity -= fill;
+        ask_order.quantity -= fill;
+
+        Trade trade = {order.id, ask_order.id, price, fill, 0};
+        this->trade_callback_(trade);
+
+        if (ask_order.quantity == 0) {
+          lookup_table.erase(ask_order.id);
+          ask.pop_front();
+        }
+      }
+
+      if (ask.empty()) {
+        this->asks.erase(price);
+      }
+    }
+  } else {
+    while (!this->bids.empty() && remaining_quantity > 0) {
+      auto &[price, bid] = *this->bids.begin();
+
+      while (remaining_quantity > 0 && !bid.empty()) {
+        Order &bid_order = bid.front();
+        const uint64_t fill =
+            std::min<uint64_t>(remaining_quantity, bid_order.quantity);
+        remaining_quantity -= fill;
+        bid_order.quantity -= fill;
+
+        Trade trade = {order.id, bid_order.id, price, fill, 0};
+        this->trade_callback_(trade);
+
+        if (bid_order.quantity == 0) {
+          lookup_table.erase(bid_order.id);
+          bid.pop_front();
+        }
+      }
+
+      if (bid.empty()) {
+        this->bids.erase(price);
+      }
     }
   }
 }
