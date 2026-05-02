@@ -4,24 +4,31 @@
 #include <stdexcept>
 #include <utility>
 
-OrderBook::OrderBook(std::function<void(const Trade &)> trade_callback)
-    : trade_callback_(std::move(trade_callback)) {}
+OrderBook::OrderBook(std::function<void(const Trade &)> trade_callback,
+                     std::function<void(const IocCanceled &)> ioc_canceled_callback)
+    : trade_callback_(std::move(trade_callback)),
+      ioc_canceled_callback_(std::move(ioc_canceled_callback)) {}
 
 void OrderBook::set_trade_callback(
     std::function<void(const Trade &)> trade_callback) {
   this->trade_callback_ = std::move(trade_callback);
 }
 
-Order OrderBook::get_best_ask() {
+void OrderBook::set_ioc_canceled_callback(
+    std::function<void(const IocCanceled &)> ioc_canceled_callback) {
+  this->ioc_canceled_callback_ = std::move(ioc_canceled_callback);
+}
+
+std::optional<Order> OrderBook::get_best_ask() {
   if (asks.empty()) {
-    return Order{};
+    return std::optional<Order>{};
   }
   return asks.begin()->second.front();
 }
 
-Order OrderBook::get_best_bid() {
+std::optional<Order> OrderBook::get_best_bid() {
   if (bids.empty()) {
-    return Order{};
+    return std::optional<Order>{};
   }
   return bids.begin()->second.front();
 }
@@ -164,6 +171,11 @@ void OrderBook::add_market_order(const Order &order) {
         this->bids.erase(price);
       }
     }
+  }
+
+  if (remaining_quantity > 0) {
+    this->ioc_canceled_callback_(
+        IocCanceled{order.id, order.side, remaining_quantity});
   }
 }
 

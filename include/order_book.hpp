@@ -4,6 +4,7 @@
 #include <functional>
 #include <list>
 #include <map>
+#include <optional>
 #include <unordered_map>
 
 struct Trade {
@@ -12,6 +13,13 @@ struct Trade {
   uint64_t price;
   uint64_t quantity;
   uint64_t sequence;
+};
+
+/// Emitted when a market order (IOC) finishes with size that did not rest.
+struct IocCanceled {
+  uint64_t order_id;
+  Side side;
+  uint64_t canceled_quantity;
 };
 
 struct LookupEntry {
@@ -23,18 +31,24 @@ struct LookupEntry {
 class OrderBook {
 public:
   explicit OrderBook(
-      std::function<void(const Trade &)> trade_callback = [](const Trade &) {});
+      std::function<void(const Trade &)> trade_callback = [](const Trade &) {},
+      std::function<void(const IocCanceled &)> ioc_canceled_callback =
+          [](const IocCanceled &) {});
 
   void set_trade_callback(std::function<void(const Trade &)> trade_callback);
+  void set_ioc_canceled_callback(
+      std::function<void(const IocCanceled &)> ioc_canceled_callback);
   void add_limit_order(const Order &order);
   bool cancel_order(const uint64_t &order_id);
+  /// Market orders use IOC: match now; unfilled size is canceled (see `IocCanceled`).
   void add_market_order(const Order &order);
-  Order get_best_ask();
-  Order get_best_bid();
+  std::optional<Order> get_best_ask();
+  std::optional<Order> get_best_bid();
 
 private:
   friend struct OrderBookTestAccess;
   std::function<void(const Trade &)> trade_callback_;
+  std::function<void(const IocCanceled &)> ioc_canceled_callback_;
   std::map<uint64_t, std::list<Order>, std::greater<uint64_t>> bids;
   std::map<uint64_t, std::list<Order>, std::less<uint64_t>> asks;
   std::unordered_map<uint64_t, LookupEntry> lookup_table;
