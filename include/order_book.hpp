@@ -1,6 +1,7 @@
 #pragma once
 
 #include "order.hpp"
+#include <cstdint>
 #include <functional>
 #include <list>
 #include <map>
@@ -49,7 +50,15 @@ private:
   friend struct OrderBookTestAccess;
   std::function<void(const Trade &)> trade_callback_;
   std::function<void(const IocCanceled &)> ioc_canceled_callback_;
+  uint64_t next_trade_sequence_ = 0;
   std::map<uint64_t, std::list<Order>, std::greater<uint64_t>> bids;
   std::map<uint64_t, std::list<Order>, std::less<uint64_t>> asks;
   std::unordered_map<uint64_t, LookupEntry> lookup_table;
+
+  /// Match aggressive `taker` against the opposite book. Returns unfilled quantity.
+  /// `limit_price_constraint`: for limit orders, max trade price (buy) / min (sell);
+  /// `nullopt` means market (no price bound).
+  template <Side taker_side>
+  uint64_t match_against_book(const Order &taker,
+                              const std::optional<uint64_t> &limit_price_constraint);
 };

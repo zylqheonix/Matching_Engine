@@ -63,7 +63,9 @@ target_link_libraries(me_order_book PRIVATE me_project_options)
 
 add_executable(order_book_init_test tests/order_book_init_test.cpp)
 target_include_directories(order_book_init_test PRIVATE include)
-target_link_libraries(order_book_init_test PRIVATE me_project_options GTest::gtest_main)
+target_link_libraries(
+  order_book_init_test PRIVATE me_project_options me_order_book GTest::gtest_main
+)
 
 add_test(NAME order_book_init_test COMMAND order_book_init_test)
 

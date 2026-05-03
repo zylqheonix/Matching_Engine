@@ -412,6 +412,38 @@ TEST(OrderBookIoc, SetIocCallbackAfterConstructionIsUsed) {
   EXPECT_EQ(ioc[0].canceled_quantity, 2u);
 }
 
+TEST(OrderBookTradeSequence, EmittedTradesHaveMonotonicSequence) {
+  std::vector<Trade> trades;
+  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+
+  book.add_limit_order(make_order(1, Side::SELL, 100, 1));
+  book.add_limit_order(make_order(2, Side::SELL, 100, 1));
+  book.add_limit_order(make_order(3, Side::BUY, 100, 2));
+
+  ASSERT_EQ(trades.size(), 2u);
+  EXPECT_EQ(trades[0].sequence, 0u);
+  EXPECT_EQ(trades[1].sequence, 1u);
+}
+
+TEST(OrderBookTradeSequence, SequenceContinuesAcrossMarketThenLimitMatch) {
+  std::vector<Trade> trades;
+  std::vector<IocCanceled> ioc;
+  OrderBook book(
+      [&trades](const Trade &trade) { trades.push_back(trade); },
+      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+
+  book.add_limit_order(make_order(1, Side::SELL, 100, 1));
+  book.add_market_order(make_market_order(2, Side::BUY, 2));
+  ASSERT_EQ(trades.size(), 1u);
+  EXPECT_EQ(trades[0].sequence, 0u);
+  ASSERT_EQ(ioc.size(), 1u);
+
+  book.add_limit_order(make_order(3, Side::SELL, 100, 1));
+  book.add_limit_order(make_order(4, Side::BUY, 100, 1));
+  ASSERT_EQ(trades.size(), 2u);
+  EXPECT_EQ(trades[1].sequence, 1u);
+}
+
 TEST(OrderBookLimit, SelfCrossAttemptMatchesInCurrentModelWithoutOwnerIdentity) {
   std::vector<Trade> trades;
   OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
@@ -424,4 +456,5 @@ TEST(OrderBookLimit, SelfCrossAttemptMatchesInCurrentModelWithoutOwnerIdentity) 
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].maker_order_id, 2u);
   EXPECT_EQ(trades[0].taker_order_id, 1u);
+  EXPECT_EQ(trades[0].sequence, 0u);
 }

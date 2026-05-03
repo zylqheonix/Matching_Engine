@@ -1,6 +1,5 @@
 #include "order_book.hpp"
 #include <algorithm>
-#include <iterator>
 #include <stdexcept>
 #include <utility>
 
@@ -11,12 +10,12 @@ OrderBook::OrderBook(std::function<void(const Trade &)> trade_callback,
 
 void OrderBook::set_trade_callback(
     std::function<void(const Trade &)> trade_callback) {
-  this->trade_callback_ = std::move(trade_callback);
+  trade_callback_ = std::move(trade_callback);
 }
 
 void OrderBook::set_ioc_canceled_callback(
     std::function<void(const IocCanceled &)> ioc_canceled_callback) {
-  this->ioc_canceled_callback_ = std::move(ioc_canceled_callback);
+  ioc_canceled_callback_ = std::move(ioc_canceled_callback);
 }
 
 std::optional<Order> OrderBook::get_best_ask() {
@@ -40,75 +39,28 @@ void OrderBook::add_limit_order(const Order &order) {
   const uint64_t limit_price = *order.price;
 
   if (order.side == Side::BUY) {
-    uint64_t remaining_quantity = order.quantity;
-    while (!this->asks.empty() && remaining_quantity > 0 &&
-           this->asks.begin()->first <= limit_price) {
-      auto &[price, ask] = *this->asks.begin();
-
-      while (remaining_quantity > 0 && !ask.empty()) {
-
-        Order &ask_order = ask.front();
-        uint64_t fill =
-            std::min<uint64_t>(remaining_quantity, ask_order.quantity);
-        remaining_quantity -= fill;
-        ask_order.quantity -= fill;
-
-        Trade trade = {order.id, ask_order.id, price, fill, 0};
-        this->trade_callback_(trade);
-
-        if (ask_order.quantity == 0) {
-          lookup_table.erase(ask_order.id);
-          ask.pop_front();
-        }
-      }
-
-      if (ask.empty()) {
-        this->asks.erase(price);
-      }
-    }
-
+    const uint64_t remaining_quantity = match_against_book<Side::BUY>(
+        order, std::optional<uint64_t>(limit_price));
     if (remaining_quantity > 0) {
-      auto &lst = this->bids[limit_price];
+      auto &lst = bids[limit_price];
       Order resting = order;
       resting.quantity = remaining_quantity;
       lst.push_back(resting);
-      this->lookup_table[order.id] = LookupEntry{
+      lookup_table[order.id] = LookupEntry{
           Side::BUY,
           limit_price,
           std::prev(lst.end()),
       };
     }
   } else {
-
-    uint64_t remaining_quantity = order.quantity;
-    while (!this->bids.empty() && remaining_quantity > 0 &&
-           this->bids.begin()->first >= limit_price) {
-      auto &[price, bid] = *this->bids.begin();
-
-      while (remaining_quantity > 0 && !bid.empty()) {
-        Order &bid_order = bid.front();
-        uint64_t fill =
-            std::min<uint64_t>(remaining_quantity, bid_order.quantity);
-        remaining_quantity -= fill;
-        bid_order.quantity -= fill;
-        Trade trade = {order.id, bid_order.id, price, fill, 0};
-        this->trade_callback_(trade);
-        if (bid_order.quantity == 0) {
-          lookup_table.erase(bid_order.id);
-          bid.pop_front();
-        }
-      }
-      if (bid.empty()) {
-        this->bids.erase(price);
-      }
-    }
-
+    const uint64_t remaining_quantity = match_against_book<Side::SELL>(
+        order, std::optional<uint64_t>(limit_price));
     if (remaining_quantity > 0) {
-      auto &lst = this->asks[limit_price];
+      auto &lst = asks[limit_price];
       Order resting = order;
       resting.quantity = remaining_quantity;
       lst.push_back(resting);
-      this->lookup_table[order.id] = LookupEntry{
+      lookup_table[order.id] = LookupEntry{
           Side::SELL,
           limit_price,
           std::prev(lst.end()),
@@ -122,91 +74,122 @@ void OrderBook::add_market_order(const Order &order) {
     throw std::invalid_argument("market order must have market type");
   }
 
-  uint64_t remaining_quantity = order.quantity;
+  const std::optional<uint64_t> no_limit;
+  uint64_t remaining_quantity = 0;
   if (order.side == Side::BUY) {
-    while (!this->asks.empty() && remaining_quantity > 0) {
-      auto &[price, ask] = *this->asks.begin();
-
-      while (remaining_quantity > 0 && !ask.empty()) {
-        Order &ask_order = ask.front();
-        const uint64_t fill =
-            std::min<uint64_t>(remaining_quantity, ask_order.quantity);
-        remaining_quantity -= fill;
-        ask_order.quantity -= fill;
-
-        Trade trade = {order.id, ask_order.id, price, fill, 0};
-        this->trade_callback_(trade);
-
-        if (ask_order.quantity == 0) {
-          lookup_table.erase(ask_order.id);
-          ask.pop_front();
-        }
-      }
-
-      if (ask.empty()) {
-        this->asks.erase(price);
-      }
-    }
+    remaining_quantity = match_against_book<Side::BUY>(order, no_limit);
   } else {
-    while (!this->bids.empty() && remaining_quantity > 0) {
-      auto &[price, bid] = *this->bids.begin();
-
-      while (remaining_quantity > 0 && !bid.empty()) {
-        Order &bid_order = bid.front();
-        const uint64_t fill =
-            std::min<uint64_t>(remaining_quantity, bid_order.quantity);
-        remaining_quantity -= fill;
-        bid_order.quantity -= fill;
-
-        Trade trade = {order.id, bid_order.id, price, fill, 0};
-        this->trade_callback_(trade);
-
-        if (bid_order.quantity == 0) {
-          lookup_table.erase(bid_order.id);
-          bid.pop_front();
-        }
-      }
-
-      if (bid.empty()) {
-        this->bids.erase(price);
-      }
-    }
+    remaining_quantity = match_against_book<Side::SELL>(order, no_limit);
   }
 
   if (remaining_quantity > 0) {
-    this->ioc_canceled_callback_(
+    ioc_canceled_callback_(
         IocCanceled{order.id, order.side, remaining_quantity});
   }
 }
 
 bool OrderBook::cancel_order(const uint64_t &order_id) {
-  auto lookup_it = this->lookup_table.find(order_id);
-  if (lookup_it == this->lookup_table.end()) {
+  auto lookup_it = lookup_table.find(order_id);
+  if (lookup_it == lookup_table.end()) {
     return false;
   }
 
   const LookupEntry &entry = lookup_it->second;
   if (entry.side == Side::BUY) {
-    auto price_level_it = this->bids.find(entry.price);
-    if (price_level_it == this->bids.end()) {
+    auto price_level_it = bids.find(entry.price);
+    if (price_level_it == bids.end()) {
       return false;
     }
 
     price_level_it->second.erase(entry.order_iterator);
     if (price_level_it->second.empty()) {
-      this->bids.erase(price_level_it);
+      bids.erase(price_level_it);
     }
   } else {
-    auto price_level_it = this->asks.find(entry.price);
-    if (price_level_it == this->asks.end()) {
+    auto price_level_it = asks.find(entry.price);
+    if (price_level_it == asks.end()) {
       return false;
     }
 
     price_level_it->second.erase(entry.order_iterator);
     if (price_level_it->second.empty()) {
-      this->asks.erase(price_level_it);
+      asks.erase(price_level_it);
     }
   }
-  this->lookup_table.erase(lookup_it);
+  lookup_table.erase(lookup_it);
   return true;
 }
+
+template <Side taker_side>
+uint64_t OrderBook::match_against_book(
+    const Order &taker,
+    const std::optional<uint64_t> &limit_price_constraint) {
+  uint64_t remaining_quantity = taker.quantity;
+
+  if constexpr (taker_side == Side::BUY) {
+    while (!asks.empty() && remaining_quantity > 0) {
+      const uint64_t best_ask_px = asks.begin()->first;
+      if (limit_price_constraint.has_value() &&
+          best_ask_px > *limit_price_constraint) {
+        break;
+      }
+      auto &[price, level] = *asks.begin();
+
+      while (remaining_quantity > 0 && !level.empty()) {
+        Order &maker = level.front();
+        const uint64_t fill =
+            std::min<uint64_t>(remaining_quantity, maker.quantity);
+        remaining_quantity -= fill;
+        maker.quantity -= fill;
+
+        Trade trade = {taker.id, maker.id, price, fill, next_trade_sequence_++};
+        trade_callback_(trade);
+
+        if (maker.quantity == 0) {
+          lookup_table.erase(maker.id);
+          level.pop_front();
+        }
+      }
+
+      if (level.empty()) {
+        asks.erase(price);
+      }
+    }
+  } else {
+    while (!bids.empty() && remaining_quantity > 0) {
+      const uint64_t best_bid_px = bids.begin()->first;
+      if (limit_price_constraint.has_value() &&
+          best_bid_px < *limit_price_constraint) {
+        break;
+      }
+      auto &[price, level] = *bids.begin();
+
+      while (remaining_quantity > 0 && !level.empty()) {
+        Order &maker = level.front();
+        const uint64_t fill =
+            std::min<uint64_t>(remaining_quantity, maker.quantity);
+        remaining_quantity -= fill;
+        maker.quantity -= fill;
+
+        Trade trade = {taker.id, maker.id, price, fill, next_trade_sequence_++};
+        trade_callback_(trade);
+
+        if (maker.quantity == 0) {
+          lookup_table.erase(maker.id);
+          level.pop_front();
+        }
+      }
+
+      if (level.empty()) {
+        bids.erase(price);
+      }
+    }
+  }
+
+  return remaining_quantity;
+}
+
+template uint64_t OrderBook::match_against_book<Side::BUY>(
+    const Order &, const std::optional<uint64_t> &);
+template uint64_t OrderBook::match_against_book<Side::SELL>(
+    const Order &, const std::optional<uint64_t> &);
