@@ -20,4 +20,7 @@ struct Order {
   uint64_t quantity;
   std::optional<uint64_t> price;
   std::chrono::system_clock::time_point timestamp;
+
+  Order *next = nullptr;
+  Order *prev = nullptr;
 };

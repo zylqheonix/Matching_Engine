@@ -1,12 +1,14 @@
 #pragma once
 
 #include "order.hpp"
+#include "price_level.hpp"
 #include <cstdint>
 #include <functional>
-#include <list>
 #include <map>
+#include <memory>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 struct Trade {
   uint64_t maker_order_id;
@@ -26,39 +28,42 @@ struct IocCanceled {
 struct LookupEntry {
   Side side;
   uint64_t price;
-  std::list<Order>::iterator order_iterator;
+  Order* order_ptr;
+  
 };
 
 class OrderBook {
-public:
-  explicit OrderBook(
-      std::function<void(const Trade &)> trade_callback = [](const Trade &) {},
-      std::function<void(const IocCanceled &)> ioc_canceled_callback =
-          [](const IocCanceled &) {});
 
-  void set_trade_callback(std::function<void(const Trade &)> trade_callback);
-  void set_ioc_canceled_callback(
-      std::function<void(const IocCanceled &)> ioc_canceled_callback);
-  void add_limit_order(const Order &order);
-  bool cancel_order(const uint64_t &order_id);
-  /// Market orders use IOC: match now; unfilled size is canceled (see `IocCanceled`).
-  void add_market_order(const Order &order);
-  std::optional<Order> get_best_ask();
-  std::optional<Order> get_best_bid();
+  public:
+    explicit OrderBook(
+        std::function<void(const Trade &)> trade_callback = [](const Trade &) {},
+        std::function<void(const IocCanceled &)> ioc_canceled_callback =
+            [](const IocCanceled &) {});
 
-private:
-  friend struct OrderBookTestAccess;
-  std::function<void(const Trade &)> trade_callback_;
-  std::function<void(const IocCanceled &)> ioc_canceled_callback_;
-  uint64_t next_trade_sequence_ = 0;
-  std::map<uint64_t, std::list<Order>, std::greater<uint64_t>> bids;
-  std::map<uint64_t, std::list<Order>, std::less<uint64_t>> asks;
-  std::unordered_map<uint64_t, LookupEntry> lookup_table;
+    void set_trade_callback(std::function<void(const Trade &)> trade_callback);
+    void set_ioc_canceled_callback(
+        std::function<void(const IocCanceled &)> ioc_canceled_callback);
+    void add_limit_order(const Order &order);
+    bool cancel_order(const uint64_t &order_id);
+    /// Market orders use IOC: match now; unfilled size is canceled (see `IocCanceled`).
+    void add_market_order(const Order &order);
+    std::optional<Order> get_best_ask();
+    std::optional<Order> get_best_bid();
 
-  /// Match aggressive `taker` against the opposite book. Returns unfilled quantity.
-  /// `limit_price_constraint`: for limit orders, max trade price (buy) / min (sell);
-  /// `nullopt` means market (no price bound).
-  template <Side taker_side>
-  uint64_t match_against_book(const Order &taker,
-                              const std::optional<uint64_t> &limit_price_constraint);
+  private:
+
+    friend struct OrderBookTestAccess;
+    std::function<void(const Trade &)> trade_callback_;
+    std::function<void(const IocCanceled &)> ioc_canceled_callback_;
+    uint64_t next_trade_sequence_ = 0;
+    std::map<uint64_t, PriceLevel, std::greater<uint64_t>> bids;
+    std::map<uint64_t, PriceLevel, std::less<uint64_t>> asks;
+    std::unordered_map<uint64_t, LookupEntry> lookup_table;
+
+    /// Match aggressive `taker` against the opposite book. Returns unfilled quantity.
+    /// `limit_price_constraint`: for limit orders, max trade price (buy) / min (sell);
+    /// `nullopt` means market (no price bound).
+    template <Side taker_side>
+    uint64_t match_against_book(const Order &taker,
+                                const std::optional<uint64_t> &limit_price_constraint);
 };

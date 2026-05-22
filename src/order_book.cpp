@@ -33,6 +33,7 @@ std::optional<Order> OrderBook::get_best_bid() {
 }
 
 void OrderBook::add_limit_order(const Order &order) {
+
   if (order.type != OrderType::LIMIT || !order.price.has_value()) {
     throw std::invalid_argument("limit order requires a limit price");
   }
@@ -42,15 +43,11 @@ void OrderBook::add_limit_order(const Order &order) {
     const uint64_t remaining_quantity = match_against_book<Side::BUY>(
         order, std::optional<uint64_t>(limit_price));
     if (remaining_quantity > 0) {
-      auto &lst = bids[limit_price];
-      Order resting = order;
-      resting.quantity = remaining_quantity;
-      lst.push_back(resting);
-      lookup_table[order.id] = LookupEntry{
-          Side::BUY,
-          limit_price,
-          std::prev(lst.end()),
-      };
+      if (bids.find(limit_price) == bids.end()) {
+        bids[limit_price] = PriceLevel(limit_price);
+      }
+
+      bids[limit_price].push_back(const_cast<Order *>(&order));
     }
   } else {
     const uint64_t remaining_quantity = match_against_book<Side::SELL>(

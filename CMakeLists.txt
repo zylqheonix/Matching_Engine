@@ -57,7 +57,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googlebenchmark)
 
-add_library(me_order_book STATIC src/order_book.cpp)
+add_library(me_order_book STATIC src/order_book.cpp src/price_level.cpp
+                                      src/order_pool.cpp)
 target_include_directories(me_order_book PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(me_order_book PRIVATE me_project_options)
 
