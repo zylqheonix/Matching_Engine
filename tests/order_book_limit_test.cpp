@@ -1,35 +1,10 @@
 #include "order_book.hpp"
 
-#include <chrono>
-#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-namespace {
-
-Order make_order(uint64_t id, Side side, uint64_t price, uint64_t quantity) {
-  Order o{};
-  o.id = id;
-  o.type = OrderType::LIMIT;
-  o.side = side;
-  o.price = price;
-  o.quantity = quantity;
-  o.timestamp = std::chrono::system_clock::now();
-  return o;
-}
-
-Order make_market_order(uint64_t id, Side side, uint64_t quantity) {
-  Order o{};
-  o.id = id;
-  o.type = OrderType::MARKET;
-  o.side = side;
-  o.quantity = quantity;
-  o.timestamp = std::chrono::system_clock::now();
-  return o;
-}
-
-} // namespace
+// ---- get_best_* on empty book ----
 
 TEST(OrderBookLimit, BestAskEmptyReturnsNullopt) {
   OrderBook book;
@@ -41,99 +16,105 @@ TEST(OrderBookLimit, BestBidEmptyReturnsNullopt) {
   EXPECT_FALSE(book.get_best_bid().has_value());
 }
 
+// ---- single-sided resting ----
+
 TEST(OrderBookLimit, SingleAskRestsAtBestAsk) {
   OrderBook book;
-  book.add_limit_order(make_order(1, Side::SELL, 100, 5));
+  book.add_limit_order(Side::SELL, 100, 5);
   auto a = book.get_best_ask();
   ASSERT_TRUE(a);
-  ASSERT_TRUE(a->price.has_value());
-  EXPECT_EQ(*a->price, 100u);
-  EXPECT_EQ(a->quantity, 5u);
+  EXPECT_EQ(*a, 100u);
 }
 
 TEST(OrderBookLimit, SingleBidRestsAtBestBid) {
   OrderBook book;
-  book.add_limit_order(make_order(1, Side::BUY, 100, 5));
+  book.add_limit_order(Side::BUY, 100, 5);
   auto b = book.get_best_bid();
   ASSERT_TRUE(b);
-  ASSERT_TRUE(b->price.has_value());
-  EXPECT_EQ(*b->price, 100u);
-  EXPECT_EQ(b->quantity, 5u);
+  EXPECT_EQ(*b, 100u);
 }
 
+// ---- crossing & matching ----
+
 TEST(OrderBookLimit, BuyMatchesAskQuantity) {
-  OrderBook book;
-  book.add_limit_order(make_order(1, Side::SELL, 100, 10));
-  book.add_limit_order(make_order(2, Side::BUY, 100, 3));
+  std::vector<Trade> trades;
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
+
+  book.add_limit_order(Side::SELL, 100, 10);
+  book.add_limit_order(Side::BUY, 100, 3);
+
+  ASSERT_EQ(trades.size(), 1u);
+  EXPECT_EQ(trades[0].price, 100u);
+  EXPECT_EQ(trades[0].quantity, 3u);
   auto a = book.get_best_ask();
   ASSERT_TRUE(a);
-  ASSERT_TRUE(a->price.has_value());
-  EXPECT_EQ(*a->price, 100u);
-  EXPECT_EQ(a->quantity, 7u);
+  EXPECT_EQ(*a, 100u);
 }
 
 TEST(OrderBookLimit, SellMatchesBidQuantity) {
-  OrderBook book;
-  book.add_limit_order(make_order(1, Side::BUY, 100, 10));
-  book.add_limit_order(make_order(2, Side::SELL, 100, 4));
+  std::vector<Trade> trades;
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
+
+  book.add_limit_order(Side::BUY, 100, 10);
+  book.add_limit_order(Side::SELL, 100, 4);
+
+  ASSERT_EQ(trades.size(), 1u);
+  EXPECT_EQ(trades[0].quantity, 4u);
   auto b = book.get_best_bid();
   ASSERT_TRUE(b);
-  ASSERT_TRUE(b->price.has_value());
-  EXPECT_EQ(*b->price, 100u);
-  EXPECT_EQ(b->quantity, 6u);
+  EXPECT_EQ(*b, 100u);
 }
 
 TEST(OrderBookLimit, BuyBelowAskDoesNotCross) {
-  OrderBook book;
-  book.add_limit_order(make_order(1, Side::SELL, 100, 10));
-  book.add_limit_order(make_order(2, Side::BUY, 99, 2));
+  std::vector<Trade> trades;
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
+
+  book.add_limit_order(Side::SELL, 100, 10);
+  book.add_limit_order(Side::BUY, 99, 2);
+
+  EXPECT_TRUE(trades.empty());
   auto ask = book.get_best_ask();
   ASSERT_TRUE(ask);
-  EXPECT_EQ(ask->quantity, 10u);
+  EXPECT_EQ(*ask, 100u);
   auto bid = book.get_best_bid();
   ASSERT_TRUE(bid);
-  ASSERT_TRUE(bid->price.has_value());
-  EXPECT_EQ(*bid->price, 99u);
-  EXPECT_EQ(bid->quantity, 2u);
+  EXPECT_EQ(*bid, 99u);
 }
 
 TEST(OrderBookLimit, EmptyBookAddBuyRestsAndNoTrades) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::BUY, 100, 5));
+  book.add_limit_order(Side::BUY, 100, 5);
 
   EXPECT_TRUE(trades.empty());
   auto bid = book.get_best_bid();
   ASSERT_TRUE(bid);
-  EXPECT_EQ(bid->id, 1u);
-  ASSERT_TRUE(bid->price.has_value());
-  EXPECT_EQ(*bid->price, 100u);
-  EXPECT_EQ(bid->quantity, 5u);
+  EXPECT_EQ(*bid, 100u);
 }
 
 TEST(OrderBookLimit, TwoNonCrossingOrdersBothRestNoTrades) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::BUY, 99, 3));
-  book.add_limit_order(make_order(2, Side::SELL, 100, 4));
+  book.add_limit_order(Side::BUY, 99, 3);
+  book.add_limit_order(Side::SELL, 100, 4);
 
   EXPECT_TRUE(trades.empty());
-  auto best_bid = book.get_best_bid();
-  ASSERT_TRUE(best_bid);
-  EXPECT_EQ(best_bid->id, 1u);
-  auto best_ask = book.get_best_ask();
-  ASSERT_TRUE(best_ask);
-  EXPECT_EQ(best_ask->id, 2u);
+  auto bid = book.get_best_bid();
+  ASSERT_TRUE(bid);
+  EXPECT_EQ(*bid, 99u);
+  auto ask = book.get_best_ask();
+  ASSERT_TRUE(ask);
+  EXPECT_EQ(*ask, 100u);
 }
 
 TEST(OrderBookLimit, CrossingExactMatchOneTradeAndBothGone) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 5));
-  book.add_limit_order(make_order(2, Side::BUY, 100, 5));
+  book.add_limit_order(Side::SELL, 100, 5);
+  book.add_limit_order(Side::BUY, 100, 5);
 
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].price, 100u);
@@ -144,144 +125,94 @@ TEST(OrderBookLimit, CrossingExactMatchOneTradeAndBothGone) {
 
 TEST(OrderBookLimit, CrossingTakerLargerLeavesTakerRemainderResting) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 3));
-  book.add_limit_order(make_order(2, Side::BUY, 100, 5));
+  book.add_limit_order(Side::SELL, 100, 3);
+  book.add_limit_order(Side::BUY, 100, 5);
 
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].quantity, 3u);
-  auto best_bid = book.get_best_bid();
-  ASSERT_TRUE(best_bid);
-  EXPECT_EQ(best_bid->id, 2u);
-  ASSERT_TRUE(best_bid->price.has_value());
-  EXPECT_EQ(*best_bid->price, 100u);
-  EXPECT_EQ(best_bid->quantity, 2u);
+  auto bid = book.get_best_bid();
+  ASSERT_TRUE(bid);
+  EXPECT_EQ(*bid, 100u);
   EXPECT_FALSE(book.get_best_ask().has_value());
 }
 
 TEST(OrderBookLimit, CrossingMakerLargerLeavesMakerRemainderResting) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 5));
-  book.add_limit_order(make_order(2, Side::BUY, 100, 3));
+  book.add_limit_order(Side::SELL, 100, 5);
+  book.add_limit_order(Side::BUY, 100, 3);
 
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].quantity, 3u);
-  auto best_ask = book.get_best_ask();
-  ASSERT_TRUE(best_ask);
-  EXPECT_EQ(best_ask->id, 1u);
-  ASSERT_TRUE(best_ask->price.has_value());
-  EXPECT_EQ(*best_ask->price, 100u);
-  EXPECT_EQ(best_ask->quantity, 2u);
+  auto ask = book.get_best_ask();
+  ASSERT_TRUE(ask);
+  EXPECT_EQ(*ask, 100u);
   EXPECT_FALSE(book.get_best_bid().has_value());
 }
 
+// ---- FIFO / price-time priority ----
+
 TEST(OrderBookLimit, TakerSweepsTwoAtSamePriceInFifoOrder) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 2));
-  book.add_limit_order(make_order(2, Side::SELL, 100, 2));
-  book.add_limit_order(make_order(3, Side::BUY, 100, 3));
+  const uint64_t s1 = book.add_limit_order(Side::SELL, 100, 2);
+  const uint64_t s2 = book.add_limit_order(Side::SELL, 100, 2);
+  book.add_limit_order(Side::BUY, 100, 3);
 
   ASSERT_EQ(trades.size(), 2u);
   EXPECT_EQ(trades[0].quantity, 2u);
   EXPECT_EQ(trades[1].quantity, 1u);
-  EXPECT_EQ(trades[0].taker_order_id, 1u);
-  EXPECT_EQ(trades[1].taker_order_id, 2u);
+  // Trade struct has the maker id stored under taker_order_id (preserved from
+  // the original list-based implementation; left intact during the pool/level
+  // migration to keep semantics identical).
+  EXPECT_EQ(trades[0].taker_order_id, s1);
+  EXPECT_EQ(trades[1].taker_order_id, s2);
   auto ask = book.get_best_ask();
   ASSERT_TRUE(ask);
-  EXPECT_EQ(ask->id, 2u);
-  EXPECT_EQ(ask->quantity, 1u);
-}
-
-TEST(OrderBookLimit, CancelRestingOrderRemovesItAndPreventsMatching) {
-  std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
-
-  book.add_limit_order(make_order(1, Side::SELL, 100, 3));
-  EXPECT_TRUE(book.cancel_order(1));
-  EXPECT_FALSE(book.get_best_ask().has_value());
-
-  book.add_limit_order(make_order(2, Side::BUY, 100, 3));
-  EXPECT_TRUE(trades.empty());
-  auto bid = book.get_best_bid();
-  ASSERT_TRUE(bid);
-  EXPECT_EQ(bid->id, 2u);
-  EXPECT_EQ(bid->quantity, 3u);
-}
-
-TEST(OrderBookLimit, CancelNonExistentOrderReturnsFalse) {
-  OrderBook book;
-  EXPECT_FALSE(book.cancel_order(42));
+  EXPECT_EQ(*ask, 100u);
 }
 
 TEST(OrderBookLimit, BetterPriceMatchesFirstRegardlessOfArrivalTime) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 101, 1));
-  book.add_limit_order(make_order(2, Side::SELL, 100, 1));
-  book.add_limit_order(make_order(3, Side::BUY, 101, 1));
+  book.add_limit_order(Side::SELL, 101, 1);
+  book.add_limit_order(Side::SELL, 100, 1);
+  book.add_limit_order(Side::BUY, 101, 1);
 
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].price, 100u);
   auto ask = book.get_best_ask();
   ASSERT_TRUE(ask);
-  EXPECT_EQ(ask->id, 1u);
-  ASSERT_TRUE(ask->price.has_value());
-  EXPECT_EQ(*ask->price, 101u);
+  EXPECT_EQ(*ask, 101u);
 }
 
 TEST(OrderBookLimit, EarlierOrderAtSamePriceMatchesFirst) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 1));
-  book.add_limit_order(make_order(2, Side::SELL, 100, 1));
-  book.add_limit_order(make_order(3, Side::BUY, 100, 1));
+  const uint64_t s1 = book.add_limit_order(Side::SELL, 100, 1);
+  book.add_limit_order(Side::SELL, 100, 1);
+  book.add_limit_order(Side::BUY, 100, 1);
 
   ASSERT_EQ(trades.size(), 1u);
-  EXPECT_EQ(trades[0].taker_order_id, 1u);
+  EXPECT_EQ(trades[0].taker_order_id, s1);
   auto ask = book.get_best_ask();
   ASSERT_TRUE(ask);
-  EXPECT_EQ(ask->id, 2u);
-  EXPECT_EQ(ask->quantity, 1u);
-}
-
-TEST(OrderBookLimit, MarketBuySweepsWithoutPriceConstraintAndDoesNotRest) {
-  std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
-
-  book.add_limit_order(make_order(1, Side::SELL, 101, 2));
-  book.add_limit_order(make_order(2, Side::SELL, 102, 2));
-  book.add_market_order(make_market_order(3, Side::BUY, 3));
-
-  ASSERT_EQ(trades.size(), 2u);
-  EXPECT_EQ(trades[0].price, 101u);
-  EXPECT_EQ(trades[1].price, 102u);
-  auto ask = book.get_best_ask();
-  ASSERT_TRUE(ask);
-  EXPECT_EQ(ask->id, 2u);
-  EXPECT_EQ(ask->quantity, 1u);
-  EXPECT_FALSE(book.get_best_bid().has_value());
-}
-
-TEST(OrderBookLimit, MarketOrderCannotBeAddedAsLimit) {
-  OrderBook book;
-  EXPECT_THROW(book.add_limit_order(make_market_order(10, Side::BUY, 1)),
-               std::invalid_argument);
+  EXPECT_EQ(*ask, 100u);
 }
 
 TEST(OrderBookLimit, PartialFillAcrossMultiplePriceLevels) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 2));
-  book.add_limit_order(make_order(2, Side::SELL, 101, 2));
-  book.add_limit_order(make_order(3, Side::BUY, 101, 3));
+  book.add_limit_order(Side::SELL, 100, 2);
+  book.add_limit_order(Side::SELL, 101, 2);
+  book.add_limit_order(Side::BUY, 101, 3);
 
   ASSERT_EQ(trades.size(), 2u);
   EXPECT_EQ(trades[0].price, 100u);
@@ -290,24 +221,85 @@ TEST(OrderBookLimit, PartialFillAcrossMultiplePriceLevels) {
   EXPECT_EQ(trades[1].quantity, 1u);
   auto ask = book.get_best_ask();
   ASSERT_TRUE(ask);
-  EXPECT_EQ(ask->id, 2u);
-  EXPECT_EQ(ask->quantity, 1u);
+  EXPECT_EQ(*ask, 101u);
 }
 
-TEST(OrderBookLimit, CancelThenReinsertSameIdCanMatchAgain) {
+// ---- cancel ----
+
+TEST(OrderBookLimit, CancelRestingOrderRemovesItAndPreventsMatching) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(42, Side::SELL, 100, 2));
-  ASSERT_TRUE(book.cancel_order(42));
+  const uint64_t s1 = book.add_limit_order(Side::SELL, 100, 3);
+  EXPECT_TRUE(book.cancel_order(s1));
   EXPECT_FALSE(book.get_best_ask().has_value());
 
-  book.add_limit_order(make_order(42, Side::SELL, 100, 2));
-  book.add_limit_order(make_order(99, Side::BUY, 100, 2));
+  book.add_limit_order(Side::BUY, 100, 3);
+  EXPECT_TRUE(trades.empty());
+  auto bid = book.get_best_bid();
+  ASSERT_TRUE(bid);
+  EXPECT_EQ(*bid, 100u);
+}
 
-  ASSERT_EQ(trades.size(), 1u);
-  EXPECT_EQ(trades[0].taker_order_id, 42u);
+TEST(OrderBookLimit, CancelNonExistentOrderReturnsFalse) {
+  OrderBook book;
+  EXPECT_FALSE(book.cancel_order(42));
+}
+
+TEST(OrderBookLimit, DoubleCancelReturnsFalseSecondTime) {
+  OrderBook book;
+  const uint64_t s1 = book.add_limit_order(Side::SELL, 100, 1);
+  EXPECT_TRUE(book.cancel_order(s1));
+  EXPECT_FALSE(book.cancel_order(s1));
+}
+
+TEST(OrderBookLimit, CancelOneOrderAtLevelLeavesOthersIntact) {
+  std::vector<Trade> trades;
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
+
+  const uint64_t s1 = book.add_limit_order(Side::SELL, 100, 1);
+  const uint64_t s2 = book.add_limit_order(Side::SELL, 100, 1);
+  const uint64_t s3 = book.add_limit_order(Side::SELL, 100, 1);
+
+  EXPECT_TRUE(book.cancel_order(s2));
+  book.add_limit_order(Side::BUY, 100, 3);
+
+  // Only s1 and s3 should have matched (s2 canceled).
+  ASSERT_EQ(trades.size(), 2u);
+  EXPECT_EQ(trades[0].taker_order_id, s1);
+  EXPECT_EQ(trades[1].taker_order_id, s3);
   EXPECT_FALSE(book.get_best_ask().has_value());
+}
+
+TEST(OrderBookLimit, CancelLastOrderRemovesEmptyLevel) {
+  OrderBook book;
+  const uint64_t s = book.add_limit_order(Side::SELL, 100, 5);
+  EXPECT_TRUE(book.cancel_order(s));
+  EXPECT_FALSE(book.get_best_ask().has_value());
+
+  // Re-adding at the same price should rest cleanly.
+  book.add_limit_order(Side::SELL, 100, 1);
+  auto a = book.get_best_ask();
+  ASSERT_TRUE(a);
+  EXPECT_EQ(*a, 100u);
+}
+
+// ---- market / IOC ----
+
+TEST(OrderBookLimit, MarketBuySweepsWithoutPriceConstraintAndDoesNotRest) {
+  std::vector<Trade> trades;
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
+
+  book.add_limit_order(Side::SELL, 101, 2);
+  book.add_limit_order(Side::SELL, 102, 2);
+  book.add_market_order(Side::BUY, 3);
+
+  ASSERT_EQ(trades.size(), 2u);
+  EXPECT_EQ(trades[0].price, 101u);
+  EXPECT_EQ(trades[1].price, 102u);
+  auto ask = book.get_best_ask();
+  ASSERT_TRUE(ask);
+  EXPECT_EQ(*ask, 102u);
   EXPECT_FALSE(book.get_best_bid().has_value());
 }
 
@@ -315,14 +307,14 @@ TEST(OrderBookLimit, MarketOrderIntoEmptyBookProducesNoTradesAndNoRestingOrder) 
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
   OrderBook book(
-      [&trades](const Trade &trade) { trades.push_back(trade); },
+      [&trades](const Trade &t) { trades.push_back(t); },
       [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
-  book.add_market_order(make_market_order(7, Side::BUY, 5));
+  const uint64_t m = book.add_market_order(Side::BUY, 5);
 
   EXPECT_TRUE(trades.empty());
   ASSERT_EQ(ioc.size(), 1u);
-  EXPECT_EQ(ioc[0].order_id, 7u);
+  EXPECT_EQ(ioc[0].order_id, m);
   EXPECT_EQ(ioc[0].side, Side::BUY);
   EXPECT_EQ(ioc[0].canceled_quantity, 5u);
   EXPECT_FALSE(book.get_best_bid().has_value());
@@ -333,16 +325,16 @@ TEST(OrderBookLimit, MarketOrderIocEmitsCanceledRemainderAfterPartialFill) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
   OrderBook book(
-      [&trades](const Trade &trade) { trades.push_back(trade); },
+      [&trades](const Trade &t) { trades.push_back(t); },
       [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 2));
-  book.add_market_order(make_market_order(2, Side::BUY, 10));
+  book.add_limit_order(Side::SELL, 100, 2);
+  const uint64_t m = book.add_market_order(Side::BUY, 10);
 
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].quantity, 2u);
   ASSERT_EQ(ioc.size(), 1u);
-  EXPECT_EQ(ioc[0].order_id, 2u);
+  EXPECT_EQ(ioc[0].order_id, m);
   EXPECT_EQ(ioc[0].side, Side::BUY);
   EXPECT_EQ(ioc[0].canceled_quantity, 8u);
   EXPECT_FALSE(book.get_best_ask().has_value());
@@ -352,14 +344,14 @@ TEST(OrderBookIoc, MarketSellIntoEmptyBookEmitsIocCanceled) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
   OrderBook book(
-      [&trades](const Trade &trade) { trades.push_back(trade); },
+      [&trades](const Trade &t) { trades.push_back(t); },
       [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
-  book.add_market_order(make_market_order(9, Side::SELL, 4));
+  const uint64_t m = book.add_market_order(Side::SELL, 4);
 
   EXPECT_TRUE(trades.empty());
   ASSERT_EQ(ioc.size(), 1u);
-  EXPECT_EQ(ioc[0].order_id, 9u);
+  EXPECT_EQ(ioc[0].order_id, m);
   EXPECT_EQ(ioc[0].side, Side::SELL);
   EXPECT_EQ(ioc[0].canceled_quantity, 4u);
 }
@@ -368,16 +360,16 @@ TEST(OrderBookIoc, MarketSellPartialFillEmitsIocForRemainder) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
   OrderBook book(
-      [&trades](const Trade &trade) { trades.push_back(trade); },
+      [&trades](const Trade &t) { trades.push_back(t); },
       [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
-  book.add_limit_order(make_order(1, Side::BUY, 100, 3));
-  book.add_market_order(make_market_order(2, Side::SELL, 10));
+  book.add_limit_order(Side::BUY, 100, 3);
+  const uint64_t m = book.add_market_order(Side::SELL, 10);
 
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].quantity, 3u);
   ASSERT_EQ(ioc.size(), 1u);
-  EXPECT_EQ(ioc[0].order_id, 2u);
+  EXPECT_EQ(ioc[0].order_id, m);
   EXPECT_EQ(ioc[0].side, Side::SELL);
   EXPECT_EQ(ioc[0].canceled_quantity, 7u);
   EXPECT_FALSE(book.get_best_bid().has_value());
@@ -387,11 +379,11 @@ TEST(OrderBookIoc, FullyFilledMarketOrderDoesNotEmitIocCanceled) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
   OrderBook book(
-      [&trades](const Trade &trade) { trades.push_back(trade); },
+      [&trades](const Trade &t) { trades.push_back(t); },
       [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 5));
-  book.add_market_order(make_market_order(2, Side::BUY, 5));
+  book.add_limit_order(Side::SELL, 100, 5);
+  book.add_market_order(Side::BUY, 5);
 
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].quantity, 5u);
@@ -405,20 +397,22 @@ TEST(OrderBookIoc, SetIocCallbackAfterConstructionIsUsed) {
   book.set_ioc_canceled_callback(
       [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
-  book.add_market_order(make_market_order(100, Side::BUY, 2));
+  const uint64_t m = book.add_market_order(Side::BUY, 2);
 
   ASSERT_EQ(ioc.size(), 1u);
-  EXPECT_EQ(ioc[0].order_id, 100u);
+  EXPECT_EQ(ioc[0].order_id, m);
   EXPECT_EQ(ioc[0].canceled_quantity, 2u);
 }
 
+// ---- trade sequence ----
+
 TEST(OrderBookTradeSequence, EmittedTradesHaveMonotonicSequence) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 1));
-  book.add_limit_order(make_order(2, Side::SELL, 100, 1));
-  book.add_limit_order(make_order(3, Side::BUY, 100, 2));
+  book.add_limit_order(Side::SELL, 100, 1);
+  book.add_limit_order(Side::SELL, 100, 1);
+  book.add_limit_order(Side::BUY, 100, 2);
 
   ASSERT_EQ(trades.size(), 2u);
   EXPECT_EQ(trades[0].sequence, 0u);
@@ -429,32 +423,54 @@ TEST(OrderBookTradeSequence, SequenceContinuesAcrossMarketThenLimitMatch) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
   OrderBook book(
-      [&trades](const Trade &trade) { trades.push_back(trade); },
+      [&trades](const Trade &t) { trades.push_back(t); },
       [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
-  book.add_limit_order(make_order(1, Side::SELL, 100, 1));
-  book.add_market_order(make_market_order(2, Side::BUY, 2));
+  book.add_limit_order(Side::SELL, 100, 1);
+  book.add_market_order(Side::BUY, 2);
   ASSERT_EQ(trades.size(), 1u);
   EXPECT_EQ(trades[0].sequence, 0u);
   ASSERT_EQ(ioc.size(), 1u);
 
-  book.add_limit_order(make_order(3, Side::SELL, 100, 1));
-  book.add_limit_order(make_order(4, Side::BUY, 100, 1));
+  book.add_limit_order(Side::SELL, 100, 1);
+  book.add_limit_order(Side::BUY, 100, 1);
   ASSERT_EQ(trades.size(), 2u);
   EXPECT_EQ(trades[1].sequence, 1u);
 }
 
 TEST(OrderBookLimit, SelfCrossAttemptMatchesInCurrentModelWithoutOwnerIdentity) {
   std::vector<Trade> trades;
-  OrderBook book([&trades](const Trade &trade) { trades.push_back(trade); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 
-  // Book has no account/owner identity, so "self-cross prevention" is out of scope.
-  // This test locks in current behavior: crossing orders always match.
-  book.add_limit_order(make_order(1, Side::SELL, 100, 1));
-  book.add_limit_order(make_order(2, Side::BUY, 100, 1));
+  // Book has no account/owner identity, so "self-cross prevention" is out of
+  // scope. This locks in current behavior: crossing orders always match.
+  const uint64_t s1 = book.add_limit_order(Side::SELL, 100, 1);
+  book.add_limit_order(Side::BUY, 100, 1);
 
   ASSERT_EQ(trades.size(), 1u);
-  EXPECT_EQ(trades[0].maker_order_id, 2u);
-  EXPECT_EQ(trades[0].taker_order_id, 1u);
+  EXPECT_EQ(trades[0].taker_order_id, s1);
   EXPECT_EQ(trades[0].sequence, 0u);
+}
+
+// ---- pool / level reuse over many ops ----
+
+TEST(OrderBookLimit, LargeCancelChurnDoesNotCorruptBook) {
+  std::vector<Trade> trades;
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
+
+  // Add a thousand bids, cancel each, then trade through fresh asks.
+  std::vector<uint64_t> ids;
+  ids.reserve(1000);
+  for (int i = 0; i < 1000; ++i) {
+    ids.push_back(book.add_limit_order(Side::BUY, 100, 1));
+  }
+  for (uint64_t id : ids) {
+    EXPECT_TRUE(book.cancel_order(id));
+  }
+  EXPECT_FALSE(book.get_best_bid().has_value());
+
+  book.add_limit_order(Side::SELL, 100, 2);
+  book.add_limit_order(Side::BUY, 100, 2);
+  ASSERT_EQ(trades.size(), 1u);
+  EXPECT_EQ(trades[0].quantity, 2u);
 }

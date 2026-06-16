@@ -1,6 +1,5 @@
 #include "order_book.hpp"
 #include <algorithm>
-#include <stdexcept>
 #include <utility>
 
 OrderBook::OrderBook(std::function<void(const Trade &)> trade_callback,
@@ -18,133 +17,152 @@ void OrderBook::set_ioc_canceled_callback(
   ioc_canceled_callback_ = std::move(ioc_canceled_callback);
 }
 
-std::optional<Order> OrderBook::get_best_ask() {
+std::optional<uint64_t> OrderBook::get_best_ask() {
   if (asks.empty()) {
-    return std::optional<Order>{};
+    return std::optional<uint64_t>{};
   }
-  return asks.begin()->second.front();
+  return std::optional<uint64_t>{asks.begin()->first};
 }
 
-std::optional<Order> OrderBook::get_best_bid() {
+std::optional<uint64_t> OrderBook::get_best_bid() {
   if (bids.empty()) {
-    return std::optional<Order>{};
+      return std::optional<uint64_t>{};
   }
-  return bids.begin()->second.front();
+  return std::optional<uint64_t>{bids.begin()->first};
 }
 
-void OrderBook::add_limit_order(const Order &order) {
+uint64_t OrderBook::add_limit_order(Side side, uint64_t price, uint64_t quantity) {
 
-  if (order.type != OrderType::LIMIT || !order.price.has_value()) {
-    throw std::invalid_argument("limit order requires a limit price");
-  }
-  const uint64_t limit_price = *order.price;
+  const uint64_t order_id = ++next_order_id_;
+  Order incoming {
+    .id = order_id,
+    .side = side,
+    .quantity = quantity,
+    .price = price,
+    .type = OrderType::LIMIT,
+    .timestamp = std::chrono::system_clock::now(),
+  };
 
-  if (order.side == Side::BUY) {
-    const uint64_t remaining_quantity = match_against_book<Side::BUY>(
-        order, std::optional<uint64_t>(limit_price));
-    if (remaining_quantity > 0) {
-      if (bids.find(limit_price) == bids.end()) {
-        bids[limit_price] = PriceLevel(limit_price);
-      }
+  Order* resting = nullptr;
+  uint64_t remaining_quantity = 0;
+  if(side == Side::BUY) {
+    remaining_quantity = match_against_book<Side::BUY>(incoming, std::optional<uint64_t>(price));
+    if(remaining_quantity > 0) {
+      resting = order_pool_.allocate();
+      *resting = incoming;
+      resting->quantity = remaining_quantity;
+      auto [it,_] = bids.try_emplace(price, price);
+      it->second.push_back(resting);
 
-      bids[limit_price].push_back(const_cast<Order *>(&order));
-    }
+    } 
   } else {
-    const uint64_t remaining_quantity = match_against_book<Side::SELL>(
-        order, std::optional<uint64_t>(limit_price));
-    if (remaining_quantity > 0) {
-      auto &lst = asks[limit_price];
-      Order resting = order;
-      resting.quantity = remaining_quantity;
-      lst.push_back(resting);
-      lookup_table[order.id] = LookupEntry{
-          Side::SELL,
-          limit_price,
-          std::prev(lst.end()),
-      };
+    remaining_quantity = match_against_book<Side::SELL>(incoming, std::optional<uint64_t>(price));
+    if(remaining_quantity > 0) {
+      resting = order_pool_.allocate();
+      *resting = incoming;
+      resting->quantity = remaining_quantity;
+      auto [it,_] = asks.try_emplace(price, price);
+      it->second.push_back(resting);
     }
   }
+
+  if(resting != nullptr) {
+    lookup_table[incoming.id] = LookupEntry{side, price, resting};
+  }
+
+  return order_id;
 }
 
-void OrderBook::add_market_order(const Order &order) {
-  if (order.type != OrderType::MARKET) {
-    throw std::invalid_argument("market order must have market type");
-  }
+
+uint64_t OrderBook::add_market_order(Side side, uint64_t quantity) {
+
+  const uint64_t order_id = ++next_order_id_;
+  Order incoming {
+    .id = order_id,
+    .side = side,
+    .quantity = quantity,
+    .type = OrderType::MARKET,
+    .timestamp = std::chrono::system_clock::now(),
+  };
 
   const std::optional<uint64_t> no_limit;
+
   uint64_t remaining_quantity = 0;
-  if (order.side == Side::BUY) {
-    remaining_quantity = match_against_book<Side::BUY>(order, no_limit);
+
+  if (incoming.side == Side::BUY) {
+
+    remaining_quantity = match_against_book<Side::BUY>(incoming, no_limit);
+  
   } else {
-    remaining_quantity = match_against_book<Side::SELL>(order, no_limit);
+    
+    remaining_quantity = match_against_book<Side::SELL>(incoming, no_limit);
   }
 
   if (remaining_quantity > 0) {
     ioc_canceled_callback_(
-        IocCanceled{order.id, order.side, remaining_quantity});
+        IocCanceled{incoming.id, incoming.side, remaining_quantity});
   }
+
+  return order_id;
 }
 
-bool OrderBook::cancel_order(const uint64_t &order_id) {
+bool OrderBook::cancel_order(uint64_t order_id) {
   auto lookup_it = lookup_table.find(order_id);
   if (lookup_it == lookup_table.end()) {
     return false;
   }
-
-  const LookupEntry &entry = lookup_it->second;
-  if (entry.side == Side::BUY) {
+  auto& entry = lookup_it->second;
+  if(entry.side == Side::BUY) {
     auto price_level_it = bids.find(entry.price);
-    if (price_level_it == bids.end()) {
-      return false;
-    }
 
-    price_level_it->second.erase(entry.order_iterator);
-    if (price_level_it->second.empty()) {
+    if(price_level_it == bids.end()) return false;
+    auto& price_level = price_level_it->second;
+
+    price_level.erase(entry.order_ptr);
+    if(price_level.empty()) {
       bids.erase(price_level_it);
     }
   } else {
     auto price_level_it = asks.find(entry.price);
-    if (price_level_it == asks.end()) {
-      return false;
-    }
-
-    price_level_it->second.erase(entry.order_iterator);
-    if (price_level_it->second.empty()) {
-      asks.erase(price_level_it);
-    }
+    if(price_level_it == asks.end()) return false;
+    auto& price_level = price_level_it->second;
+    price_level.erase(entry.order_ptr);
+    if(price_level.empty()) asks.erase(price_level_it);
   }
+  order_pool_.deallocate(entry.order_ptr);
   lookup_table.erase(lookup_it);
   return true;
 }
 
 template <Side taker_side>
 uint64_t OrderBook::match_against_book(
-    const Order &taker,
+    const Order& incoming,
     const std::optional<uint64_t> &limit_price_constraint) {
-  uint64_t remaining_quantity = taker.quantity;
+
+  uint64_t remaining_quantity = incoming.quantity;
 
   if constexpr (taker_side == Side::BUY) {
     while (!asks.empty() && remaining_quantity > 0) {
-      const uint64_t best_ask_px = asks.begin()->first;
+      const uint64_t best_ask_price = asks.begin()->first;
       if (limit_price_constraint.has_value() &&
-          best_ask_px > *limit_price_constraint) {
+          best_ask_price > *limit_price_constraint) {
         break;
       }
       auto &[price, level] = *asks.begin();
 
       while (remaining_quantity > 0 && !level.empty()) {
-        Order &maker = level.front();
+        Order* maker = level.front();
         const uint64_t fill =
-            std::min<uint64_t>(remaining_quantity, maker.quantity);
+            std::min<uint64_t>(remaining_quantity, maker->quantity);
         remaining_quantity -= fill;
-        maker.quantity -= fill;
+        maker->quantity -= fill;
 
-        Trade trade = {taker.id, maker.id, price, fill, next_trade_sequence_++};
+        Trade trade = {incoming.id, maker->id, price, fill, next_trade_sequence_++};
         trade_callback_(trade);
 
-        if (maker.quantity == 0) {
-          lookup_table.erase(maker.id);
-          level.pop_front();
+        if (maker->quantity == 0) {
+          lookup_table.erase(maker->id);
+          order_pool_.deallocate(level.pop_front());
         }
       }
 
@@ -162,18 +180,18 @@ uint64_t OrderBook::match_against_book(
       auto &[price, level] = *bids.begin();
 
       while (remaining_quantity > 0 && !level.empty()) {
-        Order &maker = level.front();
+        Order* maker = level.front();
         const uint64_t fill =
-            std::min<uint64_t>(remaining_quantity, maker.quantity);
+            std::min<uint64_t>(remaining_quantity, maker->quantity);
         remaining_quantity -= fill;
-        maker.quantity -= fill;
+        maker->quantity -= fill;
 
-        Trade trade = {taker.id, maker.id, price, fill, next_trade_sequence_++};
+        Trade trade = {incoming.id, maker->id, price, fill, next_trade_sequence_++};
         trade_callback_(trade);
 
-        if (maker.quantity == 0) {
-          lookup_table.erase(maker.id);
-          level.pop_front();
+        if (maker->quantity == 0) {
+          lookup_table.erase(maker->id);
+          order_pool_.deallocate(level.pop_front());
         }
       }
 

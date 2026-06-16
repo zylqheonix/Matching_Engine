@@ -86,6 +86,22 @@ target_link_libraries(
 
 add_test(NAME order_book_property_test COMMAND order_book_property_test)
 
+add_executable(price_level_test tests/price_level_test.cpp)
+target_include_directories(price_level_test PRIVATE include)
+target_link_libraries(
+  price_level_test PRIVATE me_project_options me_order_book GTest::gtest_main
+)
+
+add_test(NAME price_level_test COMMAND price_level_test)
+
+add_executable(order_pool_test tests/order_pool_test.cpp)
+target_include_directories(order_pool_test PRIVATE include)
+target_link_libraries(
+  order_pool_test PRIVATE me_project_options me_order_book GTest::gtest_main
+)
+
+add_test(NAME order_pool_test COMMAND order_pool_test)
+
 add_executable(order_book_benchmark benchmarks/order_book_benchmark.cpp)
 target_include_directories(order_book_benchmark PRIVATE include)
 target_link_libraries(

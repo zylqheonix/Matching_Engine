@@ -14,17 +14,6 @@ namespace {
 using Clock = std::chrono::steady_clock;
 using Nanoseconds = std::chrono::nanoseconds;
 
-Order make_limit_order(uint64_t id, Side side, uint64_t price, uint64_t quantity) {
-  Order o{};
-  o.id = id;
-  o.type = OrderType::LIMIT;
-  o.side = side;
-  o.price = price;
-  o.quantity = quantity;
-  o.timestamp = std::chrono::system_clock::now();
-  return o;
-}
-
 struct LatencyStats {
   uint64_t p50_ns;
   uint64_t p90_ns;
@@ -58,19 +47,17 @@ LatencyStats compute_stats(const std::vector<uint64_t> &samples) {
 
 LatencyStats measure_add_no_match(size_t ops) {
   OrderBook book;
-  uint64_t next_id = 1;
 
   // Seed opposite side so incoming buys remain non-crossing.
   for (size_t i = 0; i < 1024; ++i) {
-    book.add_limit_order(make_limit_order(next_id++, Side::SELL, 200, 1));
+    book.add_limit_order(Side::SELL, 200, 1);
   }
 
   std::vector<uint64_t> samples;
   samples.reserve(ops);
   for (size_t i = 0; i < ops; ++i) {
-    const uint64_t order_id = next_id++;
     const auto start = Clock::now();
-    book.add_limit_order(make_limit_order(order_id, Side::BUY, 100, 1));
+    const uint64_t order_id = book.add_limit_order(Side::BUY, 100, 1);
     const auto end = Clock::now();
     samples.push_back(
         static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
@@ -83,18 +70,17 @@ LatencyStats measure_add_no_match(size_t ops) {
 
 LatencyStats measure_add_match(size_t ops) {
   OrderBook book;
-  uint64_t next_id = 1;
 
   // Keep a stable resting ask queue so each buy matches immediately.
   for (size_t i = 0; i < ops + 2048; ++i) {
-    book.add_limit_order(make_limit_order(next_id++, Side::SELL, 100, 1));
+    book.add_limit_order(Side::SELL, 100, 1);
   }
 
   std::vector<uint64_t> samples;
   samples.reserve(ops);
   for (size_t i = 0; i < ops; ++i) {
     const auto start = Clock::now();
-    book.add_limit_order(make_limit_order(next_id++, Side::BUY, 100, 1));
+    book.add_limit_order(Side::BUY, 100, 1);
     const auto end = Clock::now();
     samples.push_back(
         static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
@@ -104,14 +90,11 @@ LatencyStats measure_add_match(size_t ops) {
 
 LatencyStats measure_cancel(size_t ops) {
   OrderBook book;
-  uint64_t next_id = 1;
   std::vector<uint64_t> ring_ids;
   ring_ids.reserve(4096);
 
   for (size_t i = 0; i < 4096; ++i) {
-    const uint64_t id = next_id++;
-    book.add_limit_order(make_limit_order(id, Side::BUY, 100, 1));
-    ring_ids.push_back(id);
+    ring_ids.push_back(book.add_limit_order(Side::BUY, 100, 1));
   }
 
   std::vector<uint64_t> samples;
@@ -126,9 +109,7 @@ LatencyStats measure_cancel(size_t ops) {
     samples.push_back(
         static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
 
-    const uint64_t replacement = next_id++;
-    book.add_limit_order(make_limit_order(replacement, Side::BUY, 100, 1));
-    ring_ids[idx] = replacement;
+    ring_ids[idx] = book.add_limit_order(Side::BUY, 100, 1);
     idx = (idx + 1) % ring_ids.size();
   }
   return compute_stats(samples);
