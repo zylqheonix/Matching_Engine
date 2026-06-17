@@ -36,10 +36,10 @@ uint64_t OrderBook::add_limit_order(Side side, uint64_t price, uint64_t quantity
   const uint64_t order_id = ++next_order_id_;
   Order incoming {
     .id = order_id,
+    .type = OrderType::LIMIT,
     .side = side,
     .quantity = quantity,
     .price = price,
-    .type = OrderType::LIMIT,
     .timestamp = std::chrono::system_clock::now(),
   };
 
@@ -79,9 +79,9 @@ uint64_t OrderBook::add_market_order(Side side, uint64_t quantity) {
   const uint64_t order_id = ++next_order_id_;
   Order incoming {
     .id = order_id,
+    .type = OrderType::MARKET,
     .side = side,
     .quantity = quantity,
-    .type = OrderType::MARKET,
     .timestamp = std::chrono::system_clock::now(),
   };
 
