@@ -73,6 +73,32 @@ uint64_t OrderBook::add_limit_order(Side side, uint64_t price, uint64_t quantity
   return order_id;
 }
 
+uint64_t OrderBook::add_limit_order_IOC( Side side, uint64_t price, uint64_t quantity) {
+
+
+  Order incoming {
+    .id = ++next_order_id_,
+    .type = OrderType::LIMIT,
+    .side = side,
+    .quantity = quantity,
+    .price = price,
+    .timestamp = std::chrono::system_clock::now(),
+  };
+  uint64_t remaining_quantity = 0;
+  if(side == Side::BUY) {
+    remaining_quantity = match_against_book<Side::BUY>(incoming, std::optional<uint64_t>(price));
+  } else {
+    remaining_quantity = match_against_book<Side::SELL>(incoming, std::optional<uint64_t>(price));
+  }
+
+  if(remaining_quantity > 0) {
+    ioc_canceled_callback_(
+        IocCanceled{incoming.id, incoming.side, remaining_quantity});
+  }
+
+  return incoming.id;
+
+}
 
 uint64_t OrderBook::add_market_order(Side side, uint64_t quantity) {
 
