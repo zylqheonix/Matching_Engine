@@ -62,4 +62,62 @@ static void BM_MatchHeavyThroughput(benchmark::State &state) {
 
 BENCHMARK(BM_MatchHeavyThroughput)->Arg(64)->Arg(512);
 
+static void BM_AddLimitOrderIocNoMatch(benchmark::State &state) {
+  const int n = static_cast<int>(state.range(0));
+  for (auto _ : state) {
+    state.PauseTiming();
+    OrderBook book;
+    for (int i = 0; i < n; ++i) {
+      book.add_limit_order(Side::SELL, 200, 1);
+    }
+    state.ResumeTiming();
+
+    for (int i = 0; i < n; ++i) {
+      benchmark::DoNotOptimize(book.add_limit_order_IOC(Side::BUY, 100, 1));
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * n);
+}
+
+BENCHMARK(BM_AddLimitOrderIocNoMatch)->Arg(64)->Arg(512);
+
+static void BM_AddLimitOrderIocMatch(benchmark::State &state) {
+  const int n = static_cast<int>(state.range(0));
+  for (auto _ : state) {
+    state.PauseTiming();
+    OrderBook book;
+    for (int i = 0; i < n; ++i) {
+      const uint64_t price = 100 + static_cast<uint64_t>(i % 10);
+      book.add_limit_order(Side::SELL, price, 1);
+    }
+    state.ResumeTiming();
+
+    for (int i = 0; i < n; ++i) {
+      benchmark::DoNotOptimize(book.add_limit_order_IOC(Side::BUY, 110, 1));
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * n);
+}
+
+BENCHMARK(BM_AddLimitOrderIocMatch)->Arg(64)->Arg(512);
+
+static void BM_AddLimitOrderIocPartialFill(benchmark::State &state) {
+  const int n = static_cast<int>(state.range(0));
+  for (auto _ : state) {
+    state.PauseTiming();
+    OrderBook book;
+    for (int i = 0; i < n; ++i) {
+      book.add_limit_order(Side::SELL, 100, 1);
+    }
+    state.ResumeTiming();
+
+    for (int i = 0; i < n; ++i) {
+      benchmark::DoNotOptimize(book.add_limit_order_IOC(Side::BUY, 100, 2));
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * n);
+}
+
+BENCHMARK(BM_AddLimitOrderIocPartialFill)->Arg(64)->Arg(512);
+
 BENCHMARK_MAIN();
