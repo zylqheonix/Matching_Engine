@@ -21,4 +21,5 @@ TEST(OrderBookInit, AssignsOrderIdsStartingAtOne) {
   EXPECT_EQ(book.add_limit_order(Side::BUY, 100, 1), 1u);
   EXPECT_EQ(book.add_limit_order(Side::SELL, 200, 1), 2u);
   EXPECT_EQ(book.add_market_order(Side::BUY, 1), 3u);
+  EXPECT_EQ(book.add_limit_order_IOC(Side::BUY, 100, 1), 4u);
 }

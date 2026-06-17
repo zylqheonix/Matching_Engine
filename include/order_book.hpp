@@ -16,7 +16,7 @@ struct Trade {
   uint64_t sequence;
 };
 
-/// Emitted when a market order (IOC) finishes with size that did not rest.
+/// Emitted when an IOC order (market or limit) finishes with size that did not rest.
 struct IocCanceled {
   uint64_t order_id;
   Side side;

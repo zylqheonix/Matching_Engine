@@ -110,12 +110,17 @@ TEST(OrderBookProperty, RandomizedInvariantsHoldAcrossTenThousandOrders) {
 
   for (int i = 0; i < 10000; ++i) {
     const int action = action_dist(rng);
-    if (action < 60) {
+    if (action < 55) {
       const Side side = (side_dist(rng) == 0) ? Side::BUY : Side::SELL;
       const uint64_t price = static_cast<uint64_t>(price_dist(rng));
       const uint64_t qty = static_cast<uint64_t>(qty_dist(rng));
       const uint64_t assigned = book.add_limit_order(side, price, qty);
       live_ids.push_back(assigned);
+    } else if (action < 70) {
+      const Side side = (side_dist(rng) == 0) ? Side::BUY : Side::SELL;
+      const uint64_t price = static_cast<uint64_t>(price_dist(rng));
+      const uint64_t qty = static_cast<uint64_t>(qty_dist(rng));
+      (void)book.add_limit_order_IOC(side, price, qty);
     } else if (action < 85) {
       const Side side = (side_dist(rng) == 0) ? Side::BUY : Side::SELL;
       const uint64_t qty = static_cast<uint64_t>(qty_dist(rng));
