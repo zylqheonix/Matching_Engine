@@ -26,9 +26,11 @@ uint64_t percentile_value(std::vector<uint64_t> samples, double percentile) {
   if (samples.empty()) {
     return 0;
   }
-  const double rank = (percentile / 100.0) * static_cast<double>(samples.size() - 1);
+  const double rank =
+      (percentile / 100.0) * static_cast<double>(samples.size() - 1);
   const size_t idx = static_cast<size_t>(rank);
-  std::nth_element(samples.begin(), samples.begin() + static_cast<std::ptrdiff_t>(idx),
+  std::nth_element(samples.begin(),
+                   samples.begin() + static_cast<std::ptrdiff_t>(idx),
                    samples.end());
   return samples[idx];
 }
@@ -39,9 +41,8 @@ LatencyStats compute_stats(const std::vector<uint64_t> &samples) {
   const uint64_t p90 = percentile_value(working, 90.0);
   const uint64_t p99 = percentile_value(working, 99.0);
   const uint64_t p999 = percentile_value(working, 99.9);
-  const uint64_t max = samples.empty()
-                           ? 0
-                           : *std::max_element(samples.begin(), samples.end());
+  const uint64_t max =
+      samples.empty() ? 0 : *std::max_element(samples.begin(), samples.end());
   return LatencyStats{p50, p90, p99, p999, max};
 }
 
@@ -59,8 +60,8 @@ LatencyStats measure_add_no_match(size_t ops) {
     const auto start = Clock::now();
     const uint64_t order_id = book.add_limit_order(Side::BUY, 100, 1);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
 
     // Keep state bounded: remove the just-added non-crossing order.
     (void)book.cancel_order(order_id);
@@ -82,8 +83,8 @@ LatencyStats measure_add_match(size_t ops) {
     const auto start = Clock::now();
     book.add_limit_order(Side::BUY, 100, 1);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
   }
   return compute_stats(samples);
 }
@@ -106,8 +107,8 @@ LatencyStats measure_cancel(size_t ops) {
     const auto start = Clock::now();
     (void)book.cancel_order(to_cancel);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
 
     ring_ids[idx] = book.add_limit_order(Side::BUY, 100, 1);
     idx = (idx + 1) % ring_ids.size();
@@ -128,8 +129,8 @@ LatencyStats measure_add_limit_ioc_no_match(size_t ops) {
     const auto start = Clock::now();
     (void)book.add_limit_order_IOC(Side::BUY, 100, 1);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
   }
   return compute_stats(samples);
 }
@@ -147,8 +148,8 @@ LatencyStats measure_add_limit_ioc_match(size_t ops) {
     const auto start = Clock::now();
     book.add_limit_order_IOC(Side::BUY, 100, 1);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
   }
   return compute_stats(samples);
 }
@@ -166,8 +167,8 @@ LatencyStats measure_add_limit_ioc_partial_fill(size_t ops) {
     const auto start = Clock::now();
     book.add_limit_order_IOC(Side::BUY, 100, 2);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
   }
   return compute_stats(samples);
 }
@@ -185,8 +186,8 @@ LatencyStats measure_add_limit_fok_no_match(size_t ops) {
     const auto start = Clock::now();
     (void)book.add_limit_order_FOK(Side::BUY, 100, 1);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
   }
   return compute_stats(samples);
 }
@@ -204,8 +205,8 @@ LatencyStats measure_add_limit_fok_kill(size_t ops) {
     const auto start = Clock::now();
     (void)book.add_limit_order_FOK(Side::BUY, 100, 2);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
   }
   return compute_stats(samples);
 }
@@ -223,14 +224,17 @@ LatencyStats measure_add_limit_fok_match(size_t ops) {
     const auto start = Clock::now();
     book.add_limit_order_FOK(Side::BUY, 100, 1);
     const auto end = Clock::now();
-    samples.push_back(
-        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+    samples.push_back(static_cast<uint64_t>(
+        std::chrono::duration_cast<Nanoseconds>(end - start).count()));
   }
   return compute_stats(samples);
 }
 
-void write_markdown(const std::string &path, size_t ops, const LatencyStats &add_no_match,
-                    const LatencyStats &add_match, const LatencyStats &cancel,
+void write_markdown(const std::string &path,
+                    size_t ops,
+                    const LatencyStats &add_no_match,
+                    const LatencyStats &add_match,
+                    const LatencyStats &cancel,
                     const LatencyStats &limit_ioc_no_match,
                     const LatencyStats &limit_ioc_match,
                     const LatencyStats &limit_ioc_partial_fill,
@@ -248,27 +252,31 @@ void write_markdown(const std::string &path, size_t ops, const LatencyStats &add
   out << "- Build expectation: Release (`-O3 -DNDEBUG`)\n\n";
   out << "| Path | p50 | p90 | p99 | p99.9 | max |\n";
   out << "| --- | ---: | ---: | ---: | ---: | ---: |\n";
-  out << "| add (no match) | " << add_no_match.p50_ns << " | " << add_no_match.p90_ns
-      << " | " << add_no_match.p99_ns << " | " << add_no_match.p999_ns << " | "
-      << add_no_match.max_ns << " |\n";
-  out << "| add (matches) | " << add_match.p50_ns << " | " << add_match.p90_ns << " | "
-      << add_match.p99_ns << " | " << add_match.p999_ns << " | " << add_match.max_ns
-      << " |\n";
+  out << "| add (no match) | " << add_no_match.p50_ns << " | "
+      << add_no_match.p90_ns << " | " << add_no_match.p99_ns << " | "
+      << add_no_match.p999_ns << " | " << add_no_match.max_ns << " |\n";
+  out << "| add (matches) | " << add_match.p50_ns << " | " << add_match.p90_ns
+      << " | " << add_match.p99_ns << " | " << add_match.p999_ns << " | "
+      << add_match.max_ns << " |\n";
   out << "| cancel | " << cancel.p50_ns << " | " << cancel.p90_ns << " | "
-      << cancel.p99_ns << " | " << cancel.p999_ns << " | " << cancel.max_ns << " |\n";
+      << cancel.p99_ns << " | " << cancel.p999_ns << " | " << cancel.max_ns
+      << " |\n";
   out << "| limit IOC (no match) | " << limit_ioc_no_match.p50_ns << " | "
-      << limit_ioc_no_match.p90_ns << " | " << limit_ioc_no_match.p99_ns << " | "
-      << limit_ioc_no_match.p999_ns << " | " << limit_ioc_no_match.max_ns << " |\n";
+      << limit_ioc_no_match.p90_ns << " | " << limit_ioc_no_match.p99_ns
+      << " | " << limit_ioc_no_match.p999_ns << " | "
+      << limit_ioc_no_match.max_ns << " |\n";
   out << "| limit IOC (matches) | " << limit_ioc_match.p50_ns << " | "
       << limit_ioc_match.p90_ns << " | " << limit_ioc_match.p99_ns << " | "
       << limit_ioc_match.p999_ns << " | " << limit_ioc_match.max_ns << " |\n";
-  out << "| limit IOC (partial fill) | " << limit_ioc_partial_fill.p50_ns << " | "
-      << limit_ioc_partial_fill.p90_ns << " | " << limit_ioc_partial_fill.p99_ns << " | "
-      << limit_ioc_partial_fill.p999_ns << " | " << limit_ioc_partial_fill.max_ns
-      << " |\n";
+  out << "| limit IOC (partial fill) | " << limit_ioc_partial_fill.p50_ns
+      << " | " << limit_ioc_partial_fill.p90_ns << " | "
+      << limit_ioc_partial_fill.p99_ns << " | "
+      << limit_ioc_partial_fill.p999_ns << " | "
+      << limit_ioc_partial_fill.max_ns << " |\n";
   out << "| limit FOK (no match) | " << limit_fok_no_match.p50_ns << " | "
-      << limit_fok_no_match.p90_ns << " | " << limit_fok_no_match.p99_ns << " | "
-      << limit_fok_no_match.p999_ns << " | " << limit_fok_no_match.max_ns << " |\n";
+      << limit_fok_no_match.p90_ns << " | " << limit_fok_no_match.p99_ns
+      << " | " << limit_fok_no_match.p999_ns << " | "
+      << limit_fok_no_match.max_ns << " |\n";
   out << "| limit FOK (kill) | " << limit_fok_kill.p50_ns << " | "
       << limit_fok_kill.p90_ns << " | " << limit_fok_kill.p99_ns << " | "
       << limit_fok_kill.p999_ns << " | " << limit_fok_kill.max_ns << " |\n";
@@ -297,14 +305,23 @@ int main(int argc, char **argv) {
   const LatencyStats cancel = measure_cancel(ops);
   const LatencyStats limit_ioc_no_match = measure_add_limit_ioc_no_match(ops);
   const LatencyStats limit_ioc_match = measure_add_limit_ioc_match(ops);
-  const LatencyStats limit_ioc_partial_fill = measure_add_limit_ioc_partial_fill(ops);
+  const LatencyStats limit_ioc_partial_fill =
+      measure_add_limit_ioc_partial_fill(ops);
   const LatencyStats limit_fok_no_match = measure_add_limit_fok_no_match(ops);
   const LatencyStats limit_fok_kill = measure_add_limit_fok_kill(ops);
   const LatencyStats limit_fok_match = measure_add_limit_fok_match(ops);
 
-  write_markdown(out_path, ops, add_no_match, add_match, cancel, limit_ioc_no_match,
-                 limit_ioc_match, limit_ioc_partial_fill, limit_fok_no_match,
-                 limit_fok_kill, limit_fok_match);
+  write_markdown(out_path,
+                 ops,
+                 add_no_match,
+                 add_match,
+                 cancel,
+                 limit_ioc_no_match,
+                 limit_ioc_match,
+                 limit_ioc_partial_fill,
+                 limit_fok_no_match,
+                 limit_fok_kill,
+                 limit_fok_match);
 
   std::cout << "Wrote latency percentiles to " << out_path << '\n';
   return 0;

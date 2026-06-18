@@ -3,7 +3,8 @@
 #include "order.hpp"
 #include <cstdint>
 
-/// Intrusive FIFO queue per price tick (orders linked via Order::prev / Order::next).
+/// Intrusive FIFO queue per price tick (orders linked via Order::prev /
+/// Order::next).
 class PriceLevel {
 public:
   explicit PriceLevel(uint64_t price) : price_(price) {}

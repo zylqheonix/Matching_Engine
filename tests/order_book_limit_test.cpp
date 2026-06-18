@@ -303,12 +303,12 @@ TEST(OrderBookLimit, MarketBuySweepsWithoutPriceConstraintAndDoesNotRest) {
   EXPECT_FALSE(book.get_best_bid().has_value());
 }
 
-TEST(OrderBookLimit, MarketOrderIntoEmptyBookProducesNoTradesAndNoRestingOrder) {
+TEST(OrderBookLimit,
+     MarketOrderIntoEmptyBookProducesNoTradesAndNoRestingOrder) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   const uint64_t m = book.add_market_order(Side::BUY, 5);
 
@@ -324,9 +324,8 @@ TEST(OrderBookLimit, MarketOrderIntoEmptyBookProducesNoTradesAndNoRestingOrder) 
 TEST(OrderBookLimit, MarketOrderIocEmitsCanceledRemainderAfterPartialFill) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 2);
   const uint64_t m = book.add_market_order(Side::BUY, 10);
@@ -343,9 +342,8 @@ TEST(OrderBookLimit, MarketOrderIocEmitsCanceledRemainderAfterPartialFill) {
 TEST(OrderBookIoc, MarketSellIntoEmptyBookEmitsIocCanceled) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   const uint64_t m = book.add_market_order(Side::SELL, 4);
 
@@ -359,9 +357,8 @@ TEST(OrderBookIoc, MarketSellIntoEmptyBookEmitsIocCanceled) {
 TEST(OrderBookIoc, MarketSellPartialFillEmitsIocForRemainder) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::BUY, 100, 3);
   const uint64_t m = book.add_market_order(Side::SELL, 10);
@@ -378,9 +375,8 @@ TEST(OrderBookIoc, MarketSellPartialFillEmitsIocForRemainder) {
 TEST(OrderBookIoc, FullyFilledMarketOrderDoesNotEmitIocCanceled) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 5);
   book.add_market_order(Side::BUY, 5);
@@ -409,9 +405,8 @@ TEST(OrderBookIoc, SetIocCallbackAfterConstructionIsUsed) {
 TEST(OrderBookLimitIoc, NonCrossingBuyIntoEmptyBookEmitsFullIocCanceled) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   const uint64_t id = book.add_limit_order_IOC(Side::BUY, 100, 5);
 
@@ -427,9 +422,8 @@ TEST(OrderBookLimitIoc, NonCrossingBuyIntoEmptyBookEmitsFullIocCanceled) {
 TEST(OrderBookLimitIoc, NonCrossingBuyBelowAskEmitsIocAndLeavesBookUnchanged) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 4);
   const uint64_t id = book.add_limit_order_IOC(Side::BUY, 99, 3);
@@ -447,9 +441,8 @@ TEST(OrderBookLimitIoc, NonCrossingBuyBelowAskEmitsIocAndLeavesBookUnchanged) {
 TEST(OrderBookLimitIoc, PartialFillEmitsCanceledRemainderAndDoesNotRest) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 2);
   const uint64_t id = book.add_limit_order_IOC(Side::BUY, 100, 10);
@@ -467,9 +460,8 @@ TEST(OrderBookLimitIoc, PartialFillEmitsCanceledRemainderAndDoesNotRest) {
 TEST(OrderBookLimitIoc, FullyFilledOrderDoesNotEmitIocCanceled) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 5);
   book.add_limit_order_IOC(Side::BUY, 100, 5);
@@ -484,9 +476,8 @@ TEST(OrderBookLimitIoc, FullyFilledOrderDoesNotEmitIocCanceled) {
 TEST(OrderBookLimitIoc, SellIntoEmptyBookEmitsFullIocCanceled) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   const uint64_t id = book.add_limit_order_IOC(Side::SELL, 100, 4);
 
@@ -501,9 +492,8 @@ TEST(OrderBookLimitIoc, SellIntoEmptyBookEmitsFullIocCanceled) {
 TEST(OrderBookLimitIoc, SellAboveBidEmitsIocAndLeavesBookUnchanged) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::BUY, 100, 6);
   const uint64_t id = book.add_limit_order_IOC(Side::SELL, 101, 2);
@@ -521,9 +511,8 @@ TEST(OrderBookLimitIoc, SellAboveBidEmitsIocAndLeavesBookUnchanged) {
 TEST(OrderBookLimitIoc, SellPartialFillEmitsCanceledRemainder) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::BUY, 100, 3);
   const uint64_t id = book.add_limit_order_IOC(Side::SELL, 100, 9);
@@ -540,9 +529,8 @@ TEST(OrderBookLimitIoc, SellPartialFillEmitsCanceledRemainder) {
 TEST(OrderBookLimitIoc, BuyRespectsPriceBoundAndSkipsWorseAskLevels) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 1);
   book.add_limit_order(Side::SELL, 101, 1);
@@ -613,9 +601,8 @@ TEST(OrderBookLimitIoc, SetIocCallbackAfterConstructionIsUsed) {
 TEST(OrderBookLimitIoc, SequenceContinuesAcrossLimitIocThenLimitMatch) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 1);
   book.add_limit_order_IOC(Side::BUY, 100, 2);
@@ -634,9 +621,8 @@ TEST(OrderBookLimitIoc, SequenceContinuesAcrossLimitIocThenLimitMatch) {
 TEST(OrderBookLimitFok, NonCrossingBuyIntoEmptyBookKillsEntireOrder) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   const uint64_t id = book.add_limit_order_FOK(Side::BUY, 100, 5);
 
@@ -649,12 +635,12 @@ TEST(OrderBookLimitFok, NonCrossingBuyIntoEmptyBookKillsEntireOrder) {
   EXPECT_FALSE(book.get_best_ask().has_value());
 }
 
-TEST(OrderBookLimitFok, NonCrossingBuyBelowAskKillsEntireOrderAndLeavesBookUnchanged) {
+TEST(OrderBookLimitFok,
+     NonCrossingBuyBelowAskKillsEntireOrderAndLeavesBookUnchanged) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 4);
   const uint64_t id = book.add_limit_order_FOK(Side::BUY, 99, 3);
@@ -672,9 +658,8 @@ TEST(OrderBookLimitFok, NonCrossingBuyBelowAskKillsEntireOrderAndLeavesBookUncha
 TEST(OrderBookLimitFok, PartialLiquidityKillsEntireOrderWithoutTrading) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 2);
   const uint64_t id = book.add_limit_order_FOK(Side::BUY, 100, 10);
@@ -693,9 +678,8 @@ TEST(OrderBookLimitFok, PartialLiquidityKillsEntireOrderWithoutTrading) {
 TEST(OrderBookLimitFok, FullyFilledOrderDoesNotEmitIocCanceled) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 5);
   book.add_limit_order_FOK(Side::BUY, 100, 5);
@@ -710,9 +694,8 @@ TEST(OrderBookLimitFok, FullyFilledOrderDoesNotEmitIocCanceled) {
 TEST(OrderBookLimitFok, SellIntoEmptyBookKillsEntireOrder) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   const uint64_t id = book.add_limit_order_FOK(Side::SELL, 100, 4);
 
@@ -727,9 +710,8 @@ TEST(OrderBookLimitFok, SellIntoEmptyBookKillsEntireOrder) {
 TEST(OrderBookLimitFok, SellAboveBidKillsEntireOrderAndLeavesBookUnchanged) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::BUY, 100, 6);
   const uint64_t id = book.add_limit_order_FOK(Side::SELL, 101, 2);
@@ -747,9 +729,8 @@ TEST(OrderBookLimitFok, SellAboveBidKillsEntireOrderAndLeavesBookUnchanged) {
 TEST(OrderBookLimitFok, SellPartialLiquidityKillsEntireOrderWithoutTrading) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::BUY, 100, 3);
   const uint64_t id = book.add_limit_order_FOK(Side::SELL, 100, 9);
@@ -767,9 +748,8 @@ TEST(OrderBookLimitFok, SellPartialLiquidityKillsEntireOrderWithoutTrading) {
 TEST(OrderBookLimitFok, BuyRespectsPriceBoundWhenScanningLiquidity) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 1);
   book.add_limit_order(Side::SELL, 101, 5);
@@ -838,9 +818,8 @@ TEST(OrderBookLimitFok, SetIocCallbackAfterConstructionIsUsedOnKill) {
 TEST(OrderBookLimitFok, SequenceContinuesAcrossKillThenLimitMatch) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 1);
   book.add_limit_order_FOK(Side::BUY, 100, 2);
@@ -900,9 +879,8 @@ TEST(OrderBookTradeSequence, EmittedTradesHaveMonotonicSequence) {
 TEST(OrderBookTradeSequence, SequenceContinuesAcrossMarketThenLimitMatch) {
   std::vector<Trade> trades;
   std::vector<IocCanceled> ioc;
-  OrderBook book(
-      [&trades](const Trade &t) { trades.push_back(t); },
-      [&ioc](const IocCanceled &c) { ioc.push_back(c); });
+  OrderBook book([&trades](const Trade &t) { trades.push_back(t); },
+                 [&ioc](const IocCanceled &c) { ioc.push_back(c); });
 
   book.add_limit_order(Side::SELL, 100, 1);
   book.add_market_order(Side::BUY, 2);
@@ -916,7 +894,8 @@ TEST(OrderBookTradeSequence, SequenceContinuesAcrossMarketThenLimitMatch) {
   EXPECT_EQ(trades[1].sequence, 1u);
 }
 
-TEST(OrderBookLimit, SelfCrossAttemptMatchesInCurrentModelWithoutOwnerIdentity) {
+TEST(OrderBookLimit,
+     SelfCrossAttemptMatchesInCurrentModelWithoutOwnerIdentity) {
   std::vector<Trade> trades;
   OrderBook book([&trades](const Trade &t) { trades.push_back(t); });
 

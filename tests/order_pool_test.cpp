@@ -18,7 +18,8 @@ TEST(OrderPool, FreshAllocationsAreDistinct) {
   for (int i = 0; i < 256; ++i) {
     Order *o = pool.allocate();
     ASSERT_NE(o, nullptr);
-    EXPECT_TRUE(seen.insert(o).second) << "duplicate pointer on allocation " << i;
+    EXPECT_TRUE(seen.insert(o).second)
+        << "duplicate pointer on allocation " << i;
   }
 }
 
