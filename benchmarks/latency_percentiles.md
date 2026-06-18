@@ -1,17 +1,17 @@
 # Order Book Latency Percentiles
 
-- Samples per path: 1000000
+- Samples per path: 200000
 - Unit: nanoseconds
 - Build expectation: Release (`-O3 -DNDEBUG`)
-- Machine: Apple M4 Max, 14 CPU cores
-- Pinning note: this run was not core-pinned (macOS default scheduler)
-- Workload shape:
-  - add (no match): non-crossing BUYs against seeded asks; inserted order is canceled immediately
-  - add (matches): BUYs crossing a steady ask queue at top of book
-  - cancel: cancel against a fixed-size rotating ring of resting BUY orders
 
 | Path | p50 | p90 | p99 | p99.9 | max |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| add (no match) | 42 | 83 | 125 | 167 | 103250 |
-| add (matches) | 42 | 42 | 83 | 333 | 1352917 |
-| cancel | 41 | 42 | 42 | 84 | 6500 |
+| add (no match) | 83 | 84 | 125 | 208 | 19292 |
+| add (matches) | 42 | 42 | 84 | 500 | 37166 |
+| cancel | 41 | 42 | 42 | 83 | 20916 |
+| limit IOC (no match) | 41 | 42 | 42 | 84 | 32292 |
+| limit IOC (matches) | 42 | 42 | 42 | 125 | 15708 |
+| limit IOC (partial fill) | 42 | 42 | 83 | 125 | 18625 |
+| limit FOK (no match) | 41 | 42 | 42 | 84 | 13041 |
+| limit FOK (kill) | 42 | 42 | 42 | 125 | 12208 |
+| limit FOK (matches) | 42 | 42 | 83 | 125 | 43625 |

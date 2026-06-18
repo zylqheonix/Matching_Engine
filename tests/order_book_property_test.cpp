@@ -121,7 +121,12 @@ TEST(OrderBookProperty, RandomizedInvariantsHoldAcrossTenThousandOrders) {
       const uint64_t price = static_cast<uint64_t>(price_dist(rng));
       const uint64_t qty = static_cast<uint64_t>(qty_dist(rng));
       (void)book.add_limit_order_IOC(side, price, qty);
-    } else if (action < 85) {
+    } else if (action < 80) {
+      const Side side = (side_dist(rng) == 0) ? Side::BUY : Side::SELL;
+      const uint64_t price = static_cast<uint64_t>(price_dist(rng));
+      const uint64_t qty = static_cast<uint64_t>(qty_dist(rng));
+      (void)book.add_limit_order_FOK(side, price, qty);
+    } else if (action < 90) {
       const Side side = (side_dist(rng) == 0) ? Side::BUY : Side::SELL;
       const uint64_t qty = static_cast<uint64_t>(qty_dist(rng));
       (void)book.add_market_order(side, qty);

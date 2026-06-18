@@ -172,11 +172,71 @@ LatencyStats measure_add_limit_ioc_partial_fill(size_t ops) {
   return compute_stats(samples);
 }
 
+LatencyStats measure_add_limit_fok_no_match(size_t ops) {
+  OrderBook book;
+
+  for (size_t i = 0; i < 1024; ++i) {
+    book.add_limit_order(Side::SELL, 200, 1);
+  }
+
+  std::vector<uint64_t> samples;
+  samples.reserve(ops);
+  for (size_t i = 0; i < ops; ++i) {
+    const auto start = Clock::now();
+    (void)book.add_limit_order_FOK(Side::BUY, 100, 1);
+    const auto end = Clock::now();
+    samples.push_back(
+        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+  }
+  return compute_stats(samples);
+}
+
+LatencyStats measure_add_limit_fok_kill(size_t ops) {
+  OrderBook book;
+
+  for (size_t i = 0; i < ops + 2048; ++i) {
+    book.add_limit_order(Side::SELL, 100, 1);
+  }
+
+  std::vector<uint64_t> samples;
+  samples.reserve(ops);
+  for (size_t i = 0; i < ops; ++i) {
+    const auto start = Clock::now();
+    (void)book.add_limit_order_FOK(Side::BUY, 100, 2);
+    const auto end = Clock::now();
+    samples.push_back(
+        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+  }
+  return compute_stats(samples);
+}
+
+LatencyStats measure_add_limit_fok_match(size_t ops) {
+  OrderBook book;
+
+  for (size_t i = 0; i < ops + 2048; ++i) {
+    book.add_limit_order(Side::SELL, 100, 1);
+  }
+
+  std::vector<uint64_t> samples;
+  samples.reserve(ops);
+  for (size_t i = 0; i < ops; ++i) {
+    const auto start = Clock::now();
+    book.add_limit_order_FOK(Side::BUY, 100, 1);
+    const auto end = Clock::now();
+    samples.push_back(
+        static_cast<uint64_t>(std::chrono::duration_cast<Nanoseconds>(end - start).count()));
+  }
+  return compute_stats(samples);
+}
+
 void write_markdown(const std::string &path, size_t ops, const LatencyStats &add_no_match,
                     const LatencyStats &add_match, const LatencyStats &cancel,
                     const LatencyStats &limit_ioc_no_match,
                     const LatencyStats &limit_ioc_match,
-                    const LatencyStats &limit_ioc_partial_fill) {
+                    const LatencyStats &limit_ioc_partial_fill,
+                    const LatencyStats &limit_fok_no_match,
+                    const LatencyStats &limit_fok_kill,
+                    const LatencyStats &limit_fok_match) {
   std::ofstream out(path, std::ios::trunc);
   if (!out.is_open()) {
     throw std::runtime_error("failed to open output file: " + path);
@@ -206,6 +266,15 @@ void write_markdown(const std::string &path, size_t ops, const LatencyStats &add
       << limit_ioc_partial_fill.p90_ns << " | " << limit_ioc_partial_fill.p99_ns << " | "
       << limit_ioc_partial_fill.p999_ns << " | " << limit_ioc_partial_fill.max_ns
       << " |\n";
+  out << "| limit FOK (no match) | " << limit_fok_no_match.p50_ns << " | "
+      << limit_fok_no_match.p90_ns << " | " << limit_fok_no_match.p99_ns << " | "
+      << limit_fok_no_match.p999_ns << " | " << limit_fok_no_match.max_ns << " |\n";
+  out << "| limit FOK (kill) | " << limit_fok_kill.p50_ns << " | "
+      << limit_fok_kill.p90_ns << " | " << limit_fok_kill.p99_ns << " | "
+      << limit_fok_kill.p999_ns << " | " << limit_fok_kill.max_ns << " |\n";
+  out << "| limit FOK (matches) | " << limit_fok_match.p50_ns << " | "
+      << limit_fok_match.p90_ns << " | " << limit_fok_match.p99_ns << " | "
+      << limit_fok_match.p999_ns << " | " << limit_fok_match.max_ns << " |\n";
 }
 
 } // namespace
@@ -229,9 +298,13 @@ int main(int argc, char **argv) {
   const LatencyStats limit_ioc_no_match = measure_add_limit_ioc_no_match(ops);
   const LatencyStats limit_ioc_match = measure_add_limit_ioc_match(ops);
   const LatencyStats limit_ioc_partial_fill = measure_add_limit_ioc_partial_fill(ops);
+  const LatencyStats limit_fok_no_match = measure_add_limit_fok_no_match(ops);
+  const LatencyStats limit_fok_kill = measure_add_limit_fok_kill(ops);
+  const LatencyStats limit_fok_match = measure_add_limit_fok_match(ops);
 
   write_markdown(out_path, ops, add_no_match, add_match, cancel, limit_ioc_no_match,
-                 limit_ioc_match, limit_ioc_partial_fill);
+                 limit_ioc_match, limit_ioc_partial_fill, limit_fok_no_match,
+                 limit_fok_kill, limit_fok_match);
 
   std::cout << "Wrote latency percentiles to " << out_path << '\n';
   return 0;

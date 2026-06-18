@@ -44,6 +44,7 @@ class OrderBook {
     /// Returns the engine-assigned order id (1-based).
     uint64_t add_limit_order(Side side, uint64_t price, uint64_t quantity);
     uint64_t add_limit_order_IOC(Side side, uint64_t price, uint64_t quantity);
+    uint64_t add_limit_order_FOK(Side side, uint64_t price, uint64_t quantity);
     bool cancel_order(uint64_t order_id);
     /// Market orders use IOC: match now; unfilled size is canceled (see `IocCanceled`).
     /// Returns the engine-assigned order id (1-based).

@@ -1,5 +1,6 @@
 #include "order_book.hpp"
 #include <algorithm>
+#include <cstdint>
 #include <utility>
 
 OrderBook::OrderBook(std::function<void(const Trade &)> trade_callback,
@@ -123,6 +124,63 @@ uint64_t OrderBook::add_market_order(Side side, uint64_t quantity) {
     
     remaining_quantity = match_against_book<Side::SELL>(incoming, no_limit);
   }
+
+  if (remaining_quantity > 0) {
+    ioc_canceled_callback_(
+        IocCanceled{incoming.id, incoming.side, remaining_quantity});
+  }
+
+  return order_id;
+}
+
+uint64_t OrderBook::add_limit_order_FOK(Side side, uint64_t price, uint64_t quantity) {
+  const uint64_t order_id = ++next_order_id_;
+  Order incoming {
+    .id = order_id,
+    .type = OrderType::LIMIT,
+    .side = side,
+    .quantity = quantity,
+    .price = price,
+    .timestamp = std::chrono::system_clock::now(),
+  };
+
+  const auto scan_available = [&](const auto &book, auto should_stop) -> uint64_t {
+    uint64_t available = 0;
+    for (const auto &[order_price, level] : book) {
+      if (should_stop(order_price)) {
+        break;
+      }
+      for (Order *maker = level.front(); maker != nullptr; maker = maker->next) {
+        available += maker->quantity;
+        if (available >= quantity) {
+          return available;
+        }
+      }
+    }
+    return available;
+  };
+
+  const uint64_t available_quantity =
+      (side == Side::BUY)
+          ? scan_available(asks, [&](uint64_t order_price) {
+              return order_price > price;
+            })
+          : scan_available(bids, [&](uint64_t order_price) {
+              return order_price < price;
+            });
+
+  if (available_quantity < quantity) {
+    ioc_canceled_callback_(
+        IocCanceled{incoming.id, incoming.side, quantity});
+    return order_id;
+  }
+
+  const uint64_t remaining_quantity =
+      (side == Side::BUY)
+          ? match_against_book<Side::BUY>(incoming,
+                                          std::optional<uint64_t>(price))
+          : match_against_book<Side::SELL>(incoming,
+                                           std::optional<uint64_t>(price));
 
   if (remaining_quantity > 0) {
     ioc_canceled_callback_(
